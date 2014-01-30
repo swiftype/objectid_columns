@@ -1,5 +1,10 @@
 require 'objectid_columns'
 
+unless defined?(VALID_OBJECTID_CLASSES)
+  VALID_OBJECTID_CLASSES = [ BSON::ObjectId ]
+  VALID_OBJECTID_CLASSES << Moped::BSON::ObjectId if defined?(Moped::BSON::ObjectId)
+end
+
 describe "Objectid extensions" do
   HEX = "0123456789abcdef"
 
@@ -11,7 +16,7 @@ describe "Objectid extensions" do
 
   def binary(length)
     out = ""
-    out.force_encoding(Encoding::BINARY)
+    out.force_encoding(Encoding::BINARY) if out.respond_to?(:encoding)
     length.times { out << rand(256).chr }
     out
   end
@@ -24,13 +29,15 @@ describe "Objectid extensions" do
       expect { binary(11).to_bson_id }.to raise_error(ArgumentError)
       expect { binary(13).to_bson_id }.to raise_error(ArgumentError)
 
-      wrong_encoding = binary(12)
-      wrong_encoding.force_encoding(Encoding::ISO_8859_1)
-      expect { wrong_encoding.to_bson_id }.to raise_error(ArgumentError)
+      if "".respond_to?(:encoding)
+        wrong_encoding = binary(12)
+        wrong_encoding.force_encoding(Encoding::ISO_8859_1)
+        expect { wrong_encoding.to_bson_id }.to raise_error(ArgumentError)
+      end
     end
   end
 
-  [ BSON::ObjectId, Moped::BSON::ObjectId ].each do |test_class|
+  VALID_OBJECTID_CLASSES.each do |test_class|
     context "using BSON class #{test_class.name}" do
       before :each do
         @tc = test_class

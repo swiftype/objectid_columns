@@ -16,7 +16,7 @@ String.class_eval do
   def to_bson_id
     if self =~ BSON_ID_REGEX
       ObjectidColumns.construct_objectid(self)
-    elsif length == 12 && encoding == Encoding::BINARY
+    elsif length == 12 && ((! respond_to?(:encoding)) || (encoding == Encoding::BINARY))
       ObjectidColumns.construct_objectid(unpack("H*").first)
     else
       raise ArgumentError, "#{inspect} does not seem to be a valid BSON ID; it is in neither the valid hex (exactly 24 hex characters, any encoding) nor the valid binary (12 characters, binary/ASCII-8BIT encoding) form"

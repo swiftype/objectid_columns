@@ -1,12 +1,15 @@
 require 'objectid_columns'
-require 'bson'
-require 'moped'
 require 'objectid_columns/helpers/system_helpers'
 require 'objectid_columns/helpers/database_helper'
 
+unless defined?(VALID_OBJECTID_CLASSES)
+  VALID_OBJECTID_CLASSES = [ BSON::ObjectId ]
+  VALID_OBJECTID_CLASSES << Moped::BSON::ObjectId if defined?(Moped::BSON::ObjectId)
+end
+
 RSpec::Matchers.define :be_an_objectid_object do
   match do |actual|
-    actual.kind_of?(BSON::ObjectId) || actual.kind_of?(Moped::BSON::ObjectId)
+    VALID_OBJECTID_CLASSES.detect { |c| actual.kind_of?(c) }
   end
   failure_message_for_should do |actual|
     "expected that #{actual} (#{actual.class}) would be an instance of BSON::ObjectId or Moped::BSON::ObjectId"
@@ -28,7 +31,7 @@ RSpec::Matchers.define :be_an_objectid_object_matching do |expected|
   match do |actual|
     net_expected = expected ? expected.to_bson_id.to_s : expected
     net_actual = actual ? actual.to_bson_id.to_s : actual
-    (net_expected == net_actual) && (actual.kind_of?(BSON::ObjectId) || actual.kind_of?(Moped::BSON::ObjectId))
+    (net_expected == net_actual) && (VALID_OBJECTID_CLASSES.detect { |c| actual.kind_of?(c) })
   end
   failure_message_for_should do |actual|
     "expected that #{actual} (#{actual.class}) would be an ObjectId object equal to #{expected} (#{expected.class})"
@@ -50,7 +53,7 @@ describe "ObjectidColumns basic operations" do
     drop_standard_system_spec_tables!
   end
 
-  [ BSON::ObjectId, Moped::BSON::ObjectId ].each do |test_class|
+  VALID_OBJECTID_CLASSES.each do |test_class|
     context "using test class #{test_class}" do
       before :each do
         @tc = test_class
@@ -102,12 +105,14 @@ describe "ObjectidColumns basic operations" do
           expect { r.perfect_s_oid = /foobar/ }.to raise_error(ArgumentError, /foobar/i)
         end
 
-        it "should not allow assigning binary strings unless their encoding is BINARY" do
-          r = ::Spectable.new
+        if "".respond_to?(:encoding)
+          it "should not allow assigning binary strings unless their encoding is BINARY" do
+            r = ::Spectable.new
 
-          binary = new_oid.to_binary
-          binary = binary.force_encoding(Encoding::ISO_8859_1)
-          expect { r.perfect_s_oid = binary }.to raise_error(ArgumentError)
+            binary = new_oid.to_binary
+            binary = binary.force_encoding(Encoding::ISO_8859_1)
+            expect { r.perfect_s_oid = binary }.to raise_error(ArgumentError)
+          end
         end
 
         it "should not allow assigning strings that are the wrong format" do
@@ -130,11 +135,10 @@ describe "ObjectidColumns basic operations" do
         end
 
         it "should accept ObjectIds for input in binary, String, or either object format" do
-          r = ::Spectable.create!(:perfect_s_oid => (@oid = BSON::ObjectId.new))
-          expect(::Spectable.find(r.id).perfect_s_oid).to be_an_objectid_object_matching(@oid)
-
-          r = ::Spectable.create!(:perfect_s_oid => (@oid = Moped::BSON::ObjectId.new))
-          expect(::Spectable.find(r.id).perfect_s_oid).to be_an_objectid_object_matching(@oid)
+          VALID_OBJECTID_CLASSES.each do |klass|
+            r = ::Spectable.create!(:perfect_s_oid => (@oid = klass.new))
+            expect(::Spectable.find(r.id).perfect_s_oid).to be_an_objectid_object_matching(@oid)
+          end
 
           r = ::Spectable.create!(:perfect_s_oid => (@oid = new_oid.to_s))
           expect(::Spectable.find(r.id).perfect_s_oid).to be_an_objectid_object_matching(@oid)
