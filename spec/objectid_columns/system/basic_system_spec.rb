@@ -97,6 +97,21 @@ describe "ObjectidColumns basic operations" do
           expect { r.perfect_s_oid = /foobar/ }.to raise_error(ArgumentError, /foobar/i)
         end
 
+        it "should not allow assigning binary strings unless their encoding is BINARY" do
+          r = ::Spectable.new
+
+          binary = new_oid.to_binary
+          binary = binary.force_encoding(Encoding::ISO_8859_1)
+          expect { r.perfect_s_oid = binary }.to raise_error(ArgumentError)
+        end
+
+        it "should not allow assigning strings that are the wrong format" do
+          r = ::Spectable.new
+
+          expect { r.perfect_s_oid = new_oid.to_binary[0..10] }.to raise_error(ArgumentError)
+          expect { r.perfect_s_oid = new_oid.to_binary + "\x00" }.to raise_error(ArgumentError)
+        end
+
         it "should let you set columns to nil" do
           r = ::Spectable.create!(:perfect_s_oid => (@oid = new_oid))
 

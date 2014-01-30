@@ -5,35 +5,52 @@ require "active_record"
 
 module ObjectidColumns
   class << self
-    def valid_objectid_bson_class_names
-      %w{BSON::ObjectId Moped::BSON::ObjectId}
-    end
+    # Note: Any class added here has to obey the following constraints:
+    #
+    # * You can create a new instance from a hex string using .from_string(hex_string)
+    # * Calling #to_s on it
+    SUPPORTED_OBJECTID_BSON_CLASS_NAMES = %w{BSON::ObjectId Moped::BSON::ObjectId}
 
     def preferred_bson_class
-      available_objectid_columns_bson_classes.first
+      @preferred_bson_class ||= available_objectid_columns_bson_classes.first
     end
 
+    def preferred_bson_class=(bson_class)
+      unless SUPPORTED_OBJECTID_BSON_CLASS_NAMES.include?(bson_class.name)
+        raise ArgumentError, "ObjectidColumns does not support BSON class #{bson_class.name}; it supports: #{SUPPORTED_OBJECTID_BSON_CLASS_NAMES.inspect}"
+      end
+    end
+
+    # Returns an array of Class objects -- of length at least 1, but potentially more than 1 -- of the various
+    # ObjectId classes we have available to use.
     def available_objectid_columns_bson_classes
-      %w{moped bson}.each do |require_name|
-        begin
-          require require_name
-        rescue LoadError => le
+      @available_objectid_columns_bson_classes ||= begin
+        %w{moped bson}.each do |require_name|
+          begin
+            gem require_name
+          rescue Gem::LoadError => le
+          end
+
+          begin
+            require require_name
+          rescue LoadError => le
+          end
         end
+
+        defined_classes = SUPPORTED_OBJECTID_BSON_CLASS_NAMES.map do |name|
+          eval("if defined?(#{name}) then #{name} end")
+        end.compact
+
+        if defined_classes.length == 0
+          raise %{ObjectidColumns requires a library that implements an ObjectId class to be loaded; we support
+  the following ObjectId classes: #{SUPPORTED_OBJECTID_BSON_CLASS_NAMES.join(", ")}.
+  (These are from the 'bson' or 'moped' gems.) You seem to have neither one installed.
+
+  Please add one of these gems to your project and try again.}
+        end
+
+        defined_classes
       end
-
-      defined_classes = valid_objectid_bson_class_names.map do |name|
-        eval("if defined?(#{name}) then #{name} end")
-      end.compact
-
-      if defined_classes.length == 0
-        raise %{ObjectidColumns requires a library that implements an ObjectId class to be loaded -- either
-BSON::ObjectId (from MongoMapper) or Moped::BSON::ObjectId (from Moped); you seem to have
-neither one defined.
-
-Please add one of these gems to your project and try again.}
-      end
-
-      defined_classes
     end
 
     def is_valid_bson_object?(x)
@@ -41,12 +58,7 @@ Please add one of these gems to your project and try again.}
     end
 
     def construct_objectid(hex_string)
-      klass = available_objectid_columns_bson_classes.first.name
-      if klass =~ /^(.*)::([^:]+)$/i
-        $1.constantize.send($2, hex_string)
-      else
-        raise "no go"
-      end
+      preferred_bson_class.send(:from_string, hex_string)
     end
   end
 end
