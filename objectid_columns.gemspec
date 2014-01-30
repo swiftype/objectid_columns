@@ -17,7 +17,6 @@ Gem::Specification.new do |spec|
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "activesupport", ">= 3.0", "<= 4.99.99"
 
   ar_version = ENV['OBJECTID_COLUMNS_AR_TEST_VERSION']
   ar_version = ar_version.strip if ar_version
@@ -30,6 +29,7 @@ Gem::Specification.new do |spec|
 
   if version_spec
     spec.add_dependency("activerecord", *version_spec)
+    spec.add_dependency("activesupport", *version_spec)
   end
 
   spec.add_development_dependency "bundler", "~> 1.5"

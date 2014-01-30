@@ -185,8 +185,8 @@ describe "ObjectidColumns basic operations" do
           r1 = ::Spectable.create!(:perfect_s_oid => (@oid1 = new_oid), :longer_s_oid => "foobar")
           r2 = ::Spectable.create!(:perfect_s_oid => (@oid2 = new_oid), :longer_s_oid => "barfoo")
 
-          expect(::Spectable.where(:perfect_s_oid => @oid1).pluck(:id)).to eq([ r1.id ])
-          expect(::Spectable.where(:perfect_s_oid => @oid2).pluck(:id)).to eq([ r2.id ])
+          expect(::Spectable.where(:perfect_s_oid => @oid1).to_a.map(&:id)).to eq([ r1.id ])
+          expect(::Spectable.where(:perfect_s_oid => @oid2).to_a.map(&:id)).to eq([ r2.id ])
         end
       end
 
