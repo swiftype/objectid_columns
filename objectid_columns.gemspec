@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.version       = ObjectidColumns::VERSION
   spec.authors       = ["Andrew Geweke"]
   spec.email         = ["ageweke@swiftype.com"]
-  spec.summary       = %q{Transparely store MongoDB ObjectId values in ActiveRecord.}
+  spec.summary       = %q{Transparently store MongoDB ObjectId values in ActiveRecord.}
   spec.homepage      = "https://www.github.com/swiftype/objectid_columns"
   spec.license       = "MIT"
 
