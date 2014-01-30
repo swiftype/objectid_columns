@@ -22,7 +22,14 @@ This gem requires either the `moped` gem (which defines `Moped::BSON::ObjectId`)
 want to allow you to use either one. It will accept either one when assigning ObjectIds; it will return ObjectIds as
 whichever one you have loaded, (currently) preferring `BSON::ObjectId` if you have both.
 
-ObjectidColumns supports Ruby 1.8.7, 1.9.3, 2.0.0, and 2.1.0.
+ObjectidColumns supports Ruby 1.8.7, 1.9.3, 2.0.0, and 2.1.0, plus JRuby 1.7.9; it supports ActiveRecord 3.0.20,
+3.1.12, 3.2.16, and 4.0.2. It supports SQLite 3.x, MySQL 5.x, and PostgreSQL 8.x. (These are just the versions it's
+tested against; while it will not work with ActiveRecord 2.x, it is otherwise highly unlikely to be sensitive to
+exact ActiveRecord or Ruby versions, or type of RDBMS, and generally should work with most combinations.)
+
+Current build status: ![Current Build Status](https://api.travis-ci.org/swiftype/objectid_columns.png?branch=master)
+
+Brought to you by the folks at [Swiftype](https://www.swiftype.com). First version written by [Andrew Geweke](https://www.github.com/ageweke).
 
 ## Installation
 
