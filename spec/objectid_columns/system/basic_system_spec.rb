@@ -151,6 +151,14 @@ describe "ObjectidColumns basic operations" do
           r_again.perfect_s.should == 'perfect_s_2'
           r_again.longer_s.should == 'longer_s'
         end
+
+        it "should allow querying on ObjectId columns via Hash, but not change other queries" do
+          r1 = ::Spectable.create!(:perfect_s_oid => (@oid1 = new_oid), :longer_s_oid => "foobar")
+          r2 = ::Spectable.create!(:perfect_s_oid => (@oid2 = new_oid), :longer_s_oid => "barfoo")
+
+          ::Spectable.where(:perfect_s_oid => @oid1).pluck(:id).should == [ r1.id ]
+          ::Spectable.where(:perfect_s_oid => @oid2).pluck(:id).should == [ r2.id ]
+        end
       end
 
       it "should allow using any column that's long enough, including binary or string columns" do

@@ -1,5 +1,6 @@
 require "objectid_columns/version"
 require "objectid_columns/active_record/base"
+require "objectid_columns/active_record/relation"
 require "active_record"
 
 module ObjectidColumns
@@ -52,6 +53,10 @@ end
 
 ::ActiveRecord::Base.class_eval do
   include ::ObjectidColumns::ActiveRecord::Base
+end
+
+::ActiveRecord::Relation.class_eval do
+  include ::ObjectidColumns::ActiveRecord::Relation
 end
 
 require "objectid_columns/extensions"

@@ -57,6 +57,7 @@ module ObjectidColumns
       case objectid_column_type(column_name)
       when :binary then value = value[0..(BINARY_OBJECTID_LENGTH - 1)]
       when :string then value = value[0..(STRING_OBJECTID_LENGTH - 1)]
+      else unknown_type(type)
       end
 
       value.to_bson_id
@@ -74,9 +75,30 @@ module ObjectidColumns
         case objectid_column_type(column_name)
         when :binary then model[column_name] = write_value.to_binary
         when :string then model[column_name] = write_value.to_s
+        else unknown_type(type)
         end
       else
         raise ArgumentError, "When trying to write the ObjectId column #{column_name.inspect} on #{inspect}, we were passed the following value, which doesn't seem to be a valid BSON ID in any format: #{new_value.inspect}"
+      end
+    end
+
+    def translate_objectid_query_pair(query_key, query_value)
+      if (type = oid_columns[query_key.to_sym])
+        if (! query_value)
+          [ query_key, query_value ]
+        elsif query_value.respond_to?(:to_bson_id)
+          v = query_value.to_bson_id
+          v = case type
+          when :binary then v.to_binary
+          when :string then v.to_s
+          else unknown_type(type)
+          end
+          [ query_key, v ]
+        else
+          raise ArgumentError, "You're trying to constrain #{active_record_class.name} on column #{query_key.inspect}, which is an ObjectId column, but the value you passed, #{query_value.inspect}, is not a valid format for an ObjectId."
+        end
+      else
+        [ query_key, query_value ]
       end
     end
 
@@ -89,6 +111,10 @@ module ObjectidColumns
       out = oid_columns[column_name.to_sym]
       raise "Something is horribly wrong; #{column_name.inspect} is not an ObjectId column -- we have: #{oid_columns.keys.inspect}" unless out
       out
+    end
+
+    def unknown_type(type)
+      raise "Bug in ObjectidColumns in this method -- type #{type.inspect} does not have a case here."
     end
 
     def superclasses(klass)
