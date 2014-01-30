@@ -60,6 +60,15 @@ describe "ObjectidColumns basic operations" do
         @tc.new
       end
 
+      it "should not allow defining a column that's too short" do
+        lambda { ::Spectable.class_eval { has_objectid_column :too_short_b } }.should raise_error(ArgumentError)
+        lambda { ::Spectable.class_eval { has_objectid_column :too_short_s } }.should raise_error(ArgumentError)
+      end
+
+      it "should not allow defining a column that's the wrong type" do
+        lambda { ::Spectable.class_eval { has_objectid_column :some_int_column } }.should raise_error(ArgumentError)
+      end
+
       context "with a single, manually-defined column" do
         before :each do
           ::Spectable.class_eval { has_objectid_column :perfect_s_oid }
@@ -107,10 +116,10 @@ describe "ObjectidColumns basic operations" do
           r = ::Spectable.create!(:perfect_s_oid => (@oid = Moped::BSON::ObjectId.new))
           ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
 
-          r = ::Spectable.create!(:perfect_s_oid => (@oid = Moped::BSON::ObjectId.new.to_s))
+          r = ::Spectable.create!(:perfect_s_oid => (@oid = new_oid.to_s))
           ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
 
-          r = ::Spectable.create!(:perfect_s_oid => (@oid = Moped::BSON::ObjectId.new.to_binary))
+          r = ::Spectable.create!(:perfect_s_oid => (@oid = new_oid.to_binary))
           ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
         end
 

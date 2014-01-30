@@ -39,6 +39,8 @@ module ObjectidColumns
             t.column :too_short_s, 'VARCHAR(23)'
             t.column :perfect_s, 'VARCHAR(24)'
             t.column :longer_s, 'VARCHAR(30)'
+
+            t.integer :some_int_column
           end
         end
       end
