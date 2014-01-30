@@ -40,7 +40,7 @@ module ObjectidColumns
         true
       end
 
-      delegate :has_objectid_columns, :has_objectid_column, :to => :objectid_columns_manager
+      delegate :has_objectid_columns, :has_objectid_column, :objectid_column_object_for, :to => :objectid_columns_manager
 
       def objectid_columns_manager
         @objectid_columns_manager ||= ::ObjectidColumns::ObjectidColumnsManager.new(self)
