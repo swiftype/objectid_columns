@@ -43,11 +43,11 @@ module ObjectidColumns
       cn = column_name
 
       dynamic_methods_module.define_method(column_name) do
-        read_objectid_column(cn, t)
+        read_objectid_column(cn)
       end
 
       dynamic_methods_module.define_method("#{column_name}=") do |x|
-        write_objectid_column(cn, x, t)
+        write_objectid_column(cn, x)
       end
     end
 

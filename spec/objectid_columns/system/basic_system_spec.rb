@@ -145,6 +145,10 @@ describe "ObjectidColumns basic operations" do
         r_again.perfect_s.should be_an_objectid_object_matching(@perfect_s)
         r_again.longer_s.should be_an_objectid_object_matching(@longer_s)
       end
+
+      it "should automatically pick up any _oid columns" do
+
+      end
     end
   end
 end
