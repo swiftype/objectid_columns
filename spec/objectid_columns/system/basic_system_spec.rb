@@ -61,12 +61,17 @@ describe "ObjectidColumns basic operations" do
       end
 
       it "should not allow defining a column that's too short" do
-        lambda { ::Spectable.class_eval { has_objectid_column :too_short_b } }.should raise_error(ArgumentError)
-        lambda { ::Spectable.class_eval { has_objectid_column :too_short_s } }.should raise_error(ArgumentError)
+        expect { ::Spectable.class_eval { has_objectid_column :too_short_b } }.to raise_error(ArgumentError)
+        expect { ::Spectable.class_eval { has_objectid_column :too_short_s } }.to raise_error(ArgumentError)
       end
 
       it "should not allow defining a column that's the wrong type" do
-        lambda { ::Spectable.class_eval { has_objectid_column :some_int_column } }.should raise_error(ArgumentError)
+        expect { ::Spectable.class_eval { has_objectid_column :some_int_column } }.to raise_error(ArgumentError)
+      end
+
+      it "should not fail if the table doesn't exist" do
+        define_model_class(:SpectableNonexistent, 'objectidcols_spec_table_nonexistent') { }
+        expect { ::SpectableNonexistent.class_eval { has_objectid_column :foo } }.to_not raise_error
       end
 
       context "with a single, manually-defined column" do
@@ -79,15 +84,15 @@ describe "ObjectidColumns basic operations" do
 
           r = ::Spectable.new
           r.perfect_s_oid = the_oid
-          r.perfect_s_oid.should be_the_same_objectid_as(the_oid)
-          r.perfect_s_oid.should be_an_objectid_object
+          expect(r.perfect_s_oid).to be_the_same_objectid_as(the_oid)
+          expect(r.perfect_s_oid).to be_an_objectid_object
           r.save!
-          r.perfect_s_oid.should be_the_same_objectid_as(the_oid.to_s)
-          r.perfect_s_oid.should be_an_objectid_object
+          expect(r.perfect_s_oid).to be_the_same_objectid_as(the_oid.to_s)
+          expect(r.perfect_s_oid).to be_an_objectid_object
 
           r_again = ::Spectable.find(r.id)
-          r_again.perfect_s_oid.should be_the_same_objectid_as(the_oid.to_s)
-          r_again.perfect_s_oid.should be_an_objectid_object
+          expect(r_again.perfect_s_oid).to be_the_same_objectid_as(the_oid.to_s)
+          expect(r_again.perfect_s_oid).to be_an_objectid_object
         end
 
         it "should raise a good exception if you try to assign something that isn't a valid ObjectId" do
@@ -116,26 +121,26 @@ describe "ObjectidColumns basic operations" do
           r = ::Spectable.create!(:perfect_s_oid => (@oid = new_oid))
 
           r_again = ::Spectable.find(r.id)
-          r_again.perfect_s_oid.should be_an_objectid_object_matching(@oid)
+          expect(r_again.perfect_s_oid).to be_an_objectid_object_matching(@oid)
           r.perfect_s_oid = nil
           r.save!
 
           r_yet_again = ::Spectable.find(r.id)
-          r_yet_again.perfect_s_oid.should be_nil
+          expect(r_yet_again.perfect_s_oid).to be_nil
         end
 
         it "should accept ObjectIds for input in binary, String, or either object format" do
           r = ::Spectable.create!(:perfect_s_oid => (@oid = BSON::ObjectId.new))
-          ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
+          expect(::Spectable.find(r.id).perfect_s_oid).to be_an_objectid_object_matching(@oid)
 
           r = ::Spectable.create!(:perfect_s_oid => (@oid = Moped::BSON::ObjectId.new))
-          ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
+          expect(::Spectable.find(r.id).perfect_s_oid).to be_an_objectid_object_matching(@oid)
 
           r = ::Spectable.create!(:perfect_s_oid => (@oid = new_oid.to_s))
-          ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
+          expect(::Spectable.find(r.id).perfect_s_oid).to be_an_objectid_object_matching(@oid)
 
           r = ::Spectable.create!(:perfect_s_oid => (@oid = new_oid.to_binary))
-          ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
+          expect(::Spectable.find(r.id).perfect_s_oid).to be_an_objectid_object_matching(@oid)
         end
 
         it "should not do anything to the other columns" do
@@ -160,28 +165,28 @@ describe "ObjectidColumns basic operations" do
 
           r_again = ::Spectable.find(r.id)
 
-          r_again.perfect_b_oid.strip.should == 'perfect_b_1'
-          r_again.longer_b_oid.strip.should == 'longer_b_1'
+          expect(r_again.perfect_b_oid.strip).to eq('perfect_b_1')
+          expect(r_again.longer_b_oid.strip).to eq('longer_b_1')
 
-          r_again.too_short_b.strip.should == 'short_b_2'
-          r_again.perfect_b.strip.should == 'perfect_b_2'
-          r_again.longer_b.strip.should == 'longer_b_2'
+          expect(r_again.too_short_b.strip).to eq('short_b_2')
+          expect(r_again.perfect_b.strip).to eq('perfect_b_2')
+          expect(r_again.longer_b.strip).to eq('longer_b_2')
 
-          r_again.perfect_s_oid.should be_the_same_objectid_as(the_oid)
-          r_again.perfect_s_oid.should be_an_objectid_object
-          r_again.longer_s_oid.should == 'longer_s_1'
+          expect(r_again.perfect_s_oid).to be_the_same_objectid_as(the_oid)
+          expect(r_again.perfect_s_oid).to be_an_objectid_object
+          expect(r_again.longer_s_oid).to eq('longer_s_1')
 
-          r_again.too_short_s.should == 'short_s_1'
-          r_again.perfect_s.should == 'perfect_s_2'
-          r_again.longer_s.should == 'longer_s'
+          expect(r_again.too_short_s).to eq('short_s_1')
+          expect(r_again.perfect_s).to eq('perfect_s_2')
+          expect(r_again.longer_s).to eq('longer_s')
         end
 
         it "should allow querying on ObjectId columns via Hash, but not change other queries" do
           r1 = ::Spectable.create!(:perfect_s_oid => (@oid1 = new_oid), :longer_s_oid => "foobar")
           r2 = ::Spectable.create!(:perfect_s_oid => (@oid2 = new_oid), :longer_s_oid => "barfoo")
 
-          ::Spectable.where(:perfect_s_oid => @oid1).pluck(:id).should == [ r1.id ]
-          ::Spectable.where(:perfect_s_oid => @oid2).pluck(:id).should == [ r2.id ]
+          expect(::Spectable.where(:perfect_s_oid => @oid1).pluck(:id)).to eq([ r1.id ])
+          expect(::Spectable.where(:perfect_s_oid => @oid2).pluck(:id)).to eq([ r2.id ])
         end
       end
 
@@ -203,12 +208,12 @@ describe "ObjectidColumns basic operations" do
         r.save!
 
         r_again = ::Spectable.find(r.id)
-        r_again.perfect_b_oid.should be_an_objectid_object_matching(@perfect_b_oid)
-        r_again.longer_b_oid.should be_an_objectid_object_matching(@longer_b_oid)
-        r_again.perfect_s_oid.should be_an_objectid_object_matching(@perfect_s_oid)
-        r_again.longer_s_oid.should be_an_objectid_object_matching(@longer_s_oid)
-        r_again.perfect_s.should be_an_objectid_object_matching(@perfect_s)
-        r_again.longer_s.should be_an_objectid_object_matching(@longer_s)
+        expect(r_again.perfect_b_oid).to be_an_objectid_object_matching(@perfect_b_oid)
+        expect(r_again.longer_b_oid).to be_an_objectid_object_matching(@longer_b_oid)
+        expect(r_again.perfect_s_oid).to be_an_objectid_object_matching(@perfect_s_oid)
+        expect(r_again.longer_s_oid).to be_an_objectid_object_matching(@longer_s_oid)
+        expect(r_again.perfect_s).to be_an_objectid_object_matching(@perfect_s)
+        expect(r_again.longer_s).to be_an_objectid_object_matching(@longer_s)
       end
 
       it "should automatically pick up any _oid columns" do
@@ -236,19 +241,19 @@ describe "ObjectidColumns basic operations" do
 
         r_again = ::Spectable.find(r.id)
 
-        r_again.perfect_b_oid.should be_an_objectid_object_matching(@perfect_b_oid)
-        r_again.longer_b_oid.should be_an_objectid_object_matching(@longer_b_oid)
+        expect(r_again.perfect_b_oid).to be_an_objectid_object_matching(@perfect_b_oid)
+        expect(r_again.longer_b_oid).to be_an_objectid_object_matching(@longer_b_oid)
 
-        r_again.too_short_b.strip.should == 'short_b_2'
-        r_again.perfect_b.strip.should == 'perfect_b_2'
-        r_again.longer_b.strip.should == 'longer_b_2'
+        expect(r_again.too_short_b.strip).to eq('short_b_2')
+        expect(r_again.perfect_b.strip).to eq('perfect_b_2')
+        expect(r_again.longer_b.strip).to eq('longer_b_2')
 
         r_again.perfect_s_oid.should be_an_objectid_object_matching(@perfect_s_oid)
         r_again.longer_s_oid.should be_an_objectid_object_matching(@longer_s_oid)
 
-        r_again.too_short_s.should == 'short_s_1'
-        r_again.perfect_s.should == 'perfect_s_2'
-        r_again.longer_s.should == 'longer_s'
+        expect(r_again.too_short_s).to eq('short_s_1')
+        expect(r_again.perfect_s).to eq('perfect_s_2')
+        expect(r_again.longer_s).to eq('longer_s')
       end
     end
   end

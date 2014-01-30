@@ -15,6 +15,8 @@ module ObjectidColumns
     end
 
     def has_objectid_columns(*columns)
+      return unless active_record_class.table_exists?
+
       columns = autodetect_columns if columns.length == 0
       columns = columns.map { |c| c.to_s.strip.downcase.to_sym }
       columns.each do |column_name|

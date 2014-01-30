@@ -8,7 +8,7 @@ module ObjectidColumns
     # Note: Any class added here has to obey the following constraints:
     #
     # * You can create a new instance from a hex string using .from_string(hex_string)
-    # * Calling #to_s on it
+    # * Calling #to_s on it returns a hexadecimal String of exactly 24 characters
     SUPPORTED_OBJECTID_BSON_CLASS_NAMES = %w{BSON::ObjectId Moped::BSON::ObjectId}
 
     def preferred_bson_class
