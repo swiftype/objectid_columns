@@ -1,4 +1,6 @@
 require "objectid_columns/version"
+require "objectid_columns/active_record/base"
+require "active_record"
 
 module ObjectidColumns
   class << self
@@ -11,9 +13,16 @@ module ObjectidColumns
     end
 
     def available_objectid_columns_bson_classes
+      %w{moped bson}.each do |require_name|
+        begin
+          require require_name
+        rescue LoadError => le
+        end
+      end
+
       defined_classes = valid_objectid_bson_class_names.map do |name|
         eval("if defined?(#{name}) then #{name} end")
-      end
+      end.compact
 
       if defined_classes.length == 0
         raise %{ObjectidColumns requires a library that implements an ObjectId class to be loaded -- either
@@ -29,9 +38,20 @@ Please add one of these gems to your project and try again.}
     def is_valid_bson_object?(x)
       available_objectid_columns_bson_classes.detect { |k| x.kind_of?(k) }
     end
+
+    def construct_objectid(hex_string)
+      klass = available_objectid_columns_bson_classes.first.name
+      if klass =~ /^(.*)::([^:]+)$/i
+        $1.constantize.send($2, hex_string)
+      else
+        raise "no go"
+      end
+    end
   end
 end
 
 ::ActiveRecord::Base.class_eval do
   include ::ObjectidColumns::ActiveRecord::Base
 end
+
+require "objectid_columns/extensions"

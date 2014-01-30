@@ -1,4 +1,6 @@
 require 'active_support'
+require 'active_support/core_ext/object'
+require 'objectid_columns/objectid_columns_manager'
 
 module ObjectidColumns
   module HasObjectidColumns

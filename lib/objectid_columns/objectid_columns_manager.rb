@@ -1,3 +1,6 @@
+require 'objectid_columns/dynamic_methods_module'
+require 'objectid_columns/objectid_column'
+
 module ObjectidColumns
   class ObjectidColumnsManager
     def initialize(active_record_class)
@@ -52,7 +55,7 @@ module ObjectidColumns
         raise ArgumentError, "The following do not appear to be columns on #{active_record_class}, and thus can't possibly be ObjectId columns: #{missing.inspect}"
       end
 
-      column_objects.map { |column_object| ObjectidColumns::ObjectidColumn.new(column_object) }
+      column_objects.map { |column_object| ObjectidColumns::ObjectidColumn.new(self, column_object) }
     end
   end
 end

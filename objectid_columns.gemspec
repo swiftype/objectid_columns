@@ -32,9 +32,20 @@ Gem::Specification.new do |spec|
     spec.add_dependency("activerecord", *version_spec)
   end
 
-  spec.add_dependency "active_record", [ ">= 3.0", "<= 4.99.99" ]
-
   spec.add_development_dependency "bundler", "~> 1.5"
   spec.add_development_dependency "rake"
   spec.add_development_dependency "rspec", "~> 2.14"
+  spec.add_development_dependency "moped", "~> 1.5"
+  spec.add_development_dependency "bson", "~> 1.9"
+
+  require File.expand_path(File.join(File.dirname(__FILE__), 'spec', 'objectid_columns', 'helpers', 'database_helper'))
+  database_gem_name = ObjectidColumns::Helpers::DatabaseHelper.maybe_database_gem_name
+
+  # Ugh. Later versions of the 'mysql2' gem are incompatible with AR 3.0.x; so, here, we explicitly trap that case
+  # and use an earlier version of that Gem.
+  if database_gem_name && database_gem_name == 'mysql2' && ar_version && ar_version =~ /^3\.0\./
+    spec.add_development_dependency('mysql2', '~> 0.2.0')
+  else
+    spec.add_development_dependency(database_gem_name)
+  end
 end
