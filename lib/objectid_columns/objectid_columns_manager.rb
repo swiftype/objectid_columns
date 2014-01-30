@@ -31,7 +31,8 @@ module ObjectidColumns
         end
 
         required_length = self.class.const_get("#{column_object.type.to_s.upcase}_OBJECTID_LENGTH")
-        unless column_object.limit >= required_length
+        # The ||= is in case there's no limit on the column at all
+        unless (column_object.limit || required_length + 1) >= required_length
           raise ArgumentError, "#{active_record_class.name} has a column named #{column_name.inspect} of type #{column_object.type.inspect}, but it is of length #{column_object.limit}, which is too short to contain an ObjectId of this format; it must be of length at least #{required_length}"
         end
 

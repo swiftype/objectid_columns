@@ -63,9 +63,11 @@ describe "ObjectidColumns basic operations" do
         @tc.new
       end
 
-      it "should not allow defining a column that's too short" do
-        expect { ::Spectable.class_eval { has_objectid_column :too_short_b } }.to raise_error(ArgumentError)
-        expect { ::Spectable.class_eval { has_objectid_column :too_short_s } }.to raise_error(ArgumentError)
+      if ObjectidColumns::Helpers::SystemHelpers.supports_length_limits_on_binary_columns?
+        it "should not allow defining a column that's too short" do
+          expect { ::Spectable.class_eval { has_objectid_column :too_short_b } }.to raise_error(ArgumentError)
+          expect { ::Spectable.class_eval { has_objectid_column :too_short_s } }.to raise_error(ArgumentError)
+        end
       end
 
       it "should not allow defining a column that's the wrong type" do
