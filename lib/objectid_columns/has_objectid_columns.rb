@@ -6,16 +6,24 @@ module ObjectidColumns
   module HasObjectidColumns
     extend ActiveSupport::Concern
 
+    BINARY_OBJECTID_LENGTH = 12
+    STRING_OBJECTID_LENGTH = 24
+
     def read_objectid_column(column_name, type)
       value = self[column_name]
+      return value unless value
 
-      if (! value)
-        value
-      elsif value.respond_to?(:to_bson_id)
-        value.to_bson_id
-      else
-        raise "When trying to read the ObjectId column #{column_name.inspect} on #{inspect},  we got the following data from the database, which does not seem to be a valid BSON ID in any format: #{value.inspect}"
+      unless value.kind_of?(String)
+        raise "When trying to read the ObjectId column #{column_name.inspect} on #{inspect},  we got the following data from the database; we expected a String: #{value.inspect}"
       end
+
+      case type
+      when :binary then value = value[0..(BINARY_OBJECTID_LENGTH - 1)]
+      when :string then value = value[0..(STRING_OBJECTID_LENGTH - 1)]
+      else raise "Invalid type: #{type.inspect}"
+      end
+
+      value.to_bson_id
     end
 
     def write_objectid_column(column_name, new_value, type)

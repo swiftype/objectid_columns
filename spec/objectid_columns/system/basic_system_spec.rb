@@ -15,12 +15,23 @@ end
 
 RSpec::Matchers.define :be_the_same_objectid_as do |expected|
   match do |actual|
-    expected = expected.to_bson_id.to_s if expected
-    actual = actual.to_bson_id.to_s if actual
-    expected == actual
+    net_expected = expected ? expected.to_bson_id.to_s : expected
+    net_actual = actual ? actual.to_bson_id.to_s : actual
+    net_expected == net_actual
   end
   failure_message_for_should do |actual|
     "expected that #{actual} (#{actual.class}) would be the same ObjectId as #{expected} (#{expected.class})"
+  end
+end
+
+RSpec::Matchers.define :be_an_objectid_object_matching do |expected|
+  match do |actual|
+    net_expected = expected ? expected.to_bson_id.to_s : expected
+    net_actual = actual ? actual.to_bson_id.to_s : actual
+    (net_expected == net_actual) && (actual.kind_of?(BSON::ObjectId) || actual.kind_of?(Moped::BSON::ObjectId))
+  end
+  failure_message_for_should do |actual|
+    "expected that #{actual} (#{actual.class}) would be an ObjectId object equal to #{expected} (#{expected.class})"
   end
 end
 
@@ -107,6 +118,32 @@ describe "ObjectidColumns basic operations" do
           r_again.perfect_s.should == 'perfect_s_2'
           r_again.longer_s.should == 'longer_s'
         end
+      end
+
+      it "should allow using any column that's long enough, including binary or string columns" do
+        ::Spectable.class_eval do
+          has_objectid_columns :perfect_b_oid, :longer_b_oid
+          has_objectid_columns :perfect_s_oid, :longer_s_oid, :perfect_s, :longer_s
+        end
+
+        r = ::Spectable.new
+
+        r.perfect_b_oid = @perfect_b_oid = new_oid
+        r.longer_b_oid = @longer_b_oid = new_oid
+        r.perfect_s_oid = @perfect_s_oid = new_oid
+        r.longer_s_oid = @longer_s_oid = new_oid
+        r.perfect_s = @perfect_s = new_oid
+        r.longer_s = @longer_s = new_oid
+
+        r.save!
+
+        r_again = ::Spectable.find(r.id)
+        r_again.perfect_b_oid.should be_an_objectid_object_matching(@perfect_b_oid)
+        r_again.longer_b_oid.should be_an_objectid_object_matching(@longer_b_oid)
+        r_again.perfect_s_oid.should be_an_objectid_object_matching(@perfect_s_oid)
+        r_again.longer_s_oid.should be_an_objectid_object_matching(@longer_s_oid)
+        r_again.perfect_s.should be_an_objectid_object_matching(@perfect_s)
+        r_again.longer_s.should be_an_objectid_object_matching(@longer_s)
       end
     end
   end
