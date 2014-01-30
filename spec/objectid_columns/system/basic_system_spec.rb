@@ -81,6 +81,39 @@ describe "ObjectidColumns basic operations" do
           r_again.perfect_s_oid.should be_an_objectid_object
         end
 
+        it "should raise a good exception if you try to assign something that isn't a valid ObjectId" do
+          r = ::Spectable.new
+
+          expect { r.perfect_s_oid = 12345 }.to raise_error(ArgumentError, /12345/)
+          expect { r.perfect_s_oid = /foobar/ }.to raise_error(ArgumentError, /foobar/i)
+        end
+
+        it "should let you set columns to nil" do
+          r = ::Spectable.create!(:perfect_s_oid => (@oid = new_oid))
+
+          r_again = ::Spectable.find(r.id)
+          r_again.perfect_s_oid.should be_an_objectid_object_matching(@oid)
+          r.perfect_s_oid = nil
+          r.save!
+
+          r_yet_again = ::Spectable.find(r.id)
+          r_yet_again.perfect_s_oid.should be_nil
+        end
+
+        it "should accept ObjectIds for input in binary, String, or either object format" do
+          r = ::Spectable.create!(:perfect_s_oid => (@oid = BSON::ObjectId.new))
+          ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
+
+          r = ::Spectable.create!(:perfect_s_oid => (@oid = Moped::BSON::ObjectId.new))
+          ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
+
+          r = ::Spectable.create!(:perfect_s_oid => (@oid = Moped::BSON::ObjectId.new.to_s))
+          ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
+
+          r = ::Spectable.create!(:perfect_s_oid => (@oid = Moped::BSON::ObjectId.new.to_binary))
+          ::Spectable.find(r.id).perfect_s_oid.should be_an_objectid_object_matching(@oid)
+        end
+
         it "should not do anything to the other columns" do
           r = ::Spectable.new
 
@@ -147,7 +180,43 @@ describe "ObjectidColumns basic operations" do
       end
 
       it "should automatically pick up any _oid columns" do
+        ::Spectable.class_eval do
+          has_objectid_columns
+        end
 
+        r = ::Spectable.new
+
+        r.perfect_b_oid = @perfect_b_oid = new_oid
+        r.longer_b_oid = @longer_b_oid = new_oid
+
+        r.too_short_b = 'short_b_2'
+        r.perfect_b = 'perfect_b_2'
+        r.longer_b = 'longer_b_2'
+
+        r.perfect_s_oid = @perfect_s_oid = new_oid
+        r.longer_s_oid = @longer_s_oid = new_oid
+
+        r.too_short_s = 'short_s_1'
+        r.perfect_s = 'perfect_s_2'
+        r.longer_s = 'longer_s'
+
+        r.save!
+
+        r_again = ::Spectable.find(r.id)
+
+        r_again.perfect_b_oid.should be_an_objectid_object_matching(@perfect_b_oid)
+        r_again.longer_b_oid.should be_an_objectid_object_matching(@longer_b_oid)
+
+        r_again.too_short_b.strip.should == 'short_b_2'
+        r_again.perfect_b.strip.should == 'perfect_b_2'
+        r_again.longer_b.strip.should == 'longer_b_2'
+
+        r_again.perfect_s_oid.should be_an_objectid_object_matching(@perfect_s_oid)
+        r_again.longer_s_oid.should be_an_objectid_object_matching(@longer_s_oid)
+
+        r_again.too_short_s.should == 'short_s_1'
+        r_again.perfect_s.should == 'perfect_s_2'
+        r_again.longer_s.should == 'longer_s'
       end
     end
   end
