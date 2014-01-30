@@ -1,5 +1,4 @@
 require 'objectid_columns/dynamic_methods_module'
-require 'objectid_columns/objectid_column'
 
 module ObjectidColumns
   class ObjectidColumnsManager
@@ -17,9 +16,34 @@ module ObjectidColumns
 
     def has_objectid_columns(*columns)
       columns = autodetect_columns if columns.length == 0
-      to_objectid_columns(columns).each { |oid_column| oid_columns[oid_column.column_name.to_sym] = oid_column }
+      columns = columns.map { |c| c.to_s.strip.downcase.to_sym }
+      columns.each do |column_name|
+        column_object = active_record_class.columns.detect { |c| c.name.to_s == column_name.to_s }
 
-      install_methods!
+        unless column_object
+          raise ArgumentError, "#{active_record_class.name} doesn't seem to have a column named #{column_name.inspect} that we could make an ObjectId column; did you misspell it? It has columns: #{active_record_class.columns.map(&:name).inspect}"
+        end
+
+        unless [ :string, :binary ].include?(column_object.type)
+          raise ArgumentError, "#{active_record_class.name} has a column named #{column_name.inspect}, but it is of type #{column_object.type.inspect}; we can only make ObjectId columns out of :string or :binary columns"
+        end
+
+        required_length = self.class.const_get("#{column_object.type.to_s.upcase}_OBJECTID_LENGTH")
+        unless column_object.limit >= required_length
+          raise ArgumentError, "#{active_record_class.name} has a column named #{column_name.inspect} of type #{column_object.type.inspect}, but it is of length #{column_object.limit}, which is too short to contain an ObjectId of this format; it must be of length at least #{required_length}"
+        end
+
+        cn = column_name
+        dynamic_methods_module.define_method(column_name) do
+          read_objectid_column(cn)
+        end
+
+        dynamic_methods_module.define_method("#{column_name}=") do |x|
+          write_objectid_column(cn, x)
+        end
+
+        @oid_columns[column_name] = column_object.type
+      end
     end
 
     def read_objectid_column(model, column_name)
@@ -56,22 +80,15 @@ module ObjectidColumns
       end
     end
 
-    def objectid_column_object_for(column_name)
-      oid_columns[column_name.to_sym]
-    end
-
-    def objectid_column_type(column_name)
-      oid_columns[column_name.to_sym].type
-    end
-
     alias_method :has_objectid_column, :has_objectid_columns
 
     private
     attr_reader :active_record_class, :dynamic_methods_module, :oid_columns
 
-    def install_methods!
-      dynamic_methods_module.remove_all_methods!
-      oid_columns.each { |name, col| col.install_methods!(dynamic_methods_module) }
+    def objectid_column_type(column_name)
+      out = oid_columns[column_name.to_sym]
+      raise "Something is horribly wrong; #{column_name.inspect} is not an ObjectId column -- we have: #{oid_columns.keys.inspect}" unless out
+      out
     end
 
     def superclasses(klass)
