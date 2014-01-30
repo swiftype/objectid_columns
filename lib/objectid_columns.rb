@@ -19,6 +19,8 @@ module ObjectidColumns
       unless SUPPORTED_OBJECTID_BSON_CLASS_NAMES.include?(bson_class.name)
         raise ArgumentError, "ObjectidColumns does not support BSON class #{bson_class.name}; it supports: #{SUPPORTED_OBJECTID_BSON_CLASS_NAMES.inspect}"
       end
+
+      @preferred_bson_class = bson_class
     end
 
     # Returns an array of Class objects -- of length at least 1, but potentially more than 1 -- of the various
