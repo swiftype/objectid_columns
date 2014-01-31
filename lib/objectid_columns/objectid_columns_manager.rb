@@ -1,5 +1,4 @@
 require 'objectid_columns/dynamic_methods_module'
-require 'pry'
 
 module ObjectidColumns
   class ObjectidColumnsManager
