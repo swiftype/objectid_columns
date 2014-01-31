@@ -15,23 +15,20 @@ module ObjectidColumns
     end
 
     def has_objectid_primary_key(primary_key_name = nil)
-      pk = active_record_class.primary_key
+      pk = active_record_class.primary_key || primary_key_name
+
+      unless pk
+        raise ArgumentError, "Class #{active_record_class.name} has no primary key set, and you haven't supplied one to .has_objectid_primary_key. Either set one before this call (using self.primary_key = :foo), or supply one to this call (has_objectid_primary_key :foo) and we'll set it for you."
+      end
 
       if pk && primary_key_name && pk.to_s != primary_key_name.to_s
         raise ArgumentError, "Primary-key mismatch: #{active_record_class.name} thinks its primary key is #{pk.inspect}, but you're trying to declare an ObjectId primary key named #{primary_key_name.inspect}. They need to be the same, or just omit the name of the key from the call (just 'has_objectid_primary_key' by itself)."
       end
 
-      if (! pk) && (! primary_key_name)
-        raise ArgumentError, "Class #{active_record_class.name} has no primary key set, and you haven't supplied one to .has_objectid_primary_key. Either set one before this call (using self.primary_key = :foo), or supply one to this call (has_objectid_primary_key :foo) and we'll set it for you."
-      end
-
-      if (! pk)
-        active_record_class.primary_key = pk = primary_key_name
-      end
-
       # In case someone is using composite_primary_key
       raise "You can't have an ObjectId primary key that's not a String or Symbol: #{pk.inspect}" unless pk.kind_of?(String) || pk.kind_of?(Symbol)
 
+      active_record_class.primary_key ||= pk
       has_objectid_column pk
 
       unless pk.to_s == 'id'
