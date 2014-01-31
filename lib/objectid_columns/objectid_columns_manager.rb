@@ -12,6 +12,8 @@ module ObjectidColumns
       @active_record_class = active_record_class
       @oid_columns = { }
       @dynamic_methods_module = ObjectidColumns::DynamicMethodsModule.new(active_record_class, :ObjectidColumnsDynamicMethods)
+      @class_dynamic_methods_module = Module.new
+      @active_record_class.send(:extend, @class_dynamic_methods_module)
     end
 
     def has_objectid_primary_key(primary_key_name = nil)
@@ -41,30 +43,20 @@ module ObjectidColumns
 
       active_record_class.send(:before_create, :assign_objectid_primary_key)
 
-      [ :find ].each do |class_method_name|
-        metaclass = (class << active_record_class; self; end)
-        metaclass.send(:define_method, "#{class_method_name}_with_objectid_columns") do |*args, &block|
-          objectid_columns_manager.send("class_#{class_method_name}", *args, &block)
-        end
+      [ :find, :find_by_id ].each do |class_method_name|
+        @class_dynamic_methods_module.send(:define_method, class_method_name) do |*args, &block|
+          if args.length == 1 && args[0].kind_of?(String) || ObjectidColumns.is_valid_bson_object?(args[0]) || args[0].kind_of?(Array)
+            args[0] = if args[0].kind_of?(Array)
+              args[0].map { |x| objectid_columns_manager.to_valid_value_for_column(primary_key, x) }
+            else
+              objectid_columns_manager.to_valid_value_for_column(primary_key, args[0])
+            end
 
-        if active_record_class.methods(false).include?(class_method_name)
-          metaclass.send(:alias_method_chain, class_method_name, :objectid_columns)
-        else
-          metaclass.send(:alias_method, "#{class_method_name}_without_objectid_columns", class_method_name)
-          metaclass.send(:alias_method, class_method_name, "#{class_method_name}_with_objectid_columns")
+            super(args[0], &block)
+          else
+            super(*args, &block)
+          end
         end
-      end
-    end
-
-    def class_find(*args, &block)
-      if args.length == 1 && args[0].kind_of?(String) || ObjectidColumns.is_valid_bson_object?(args[0]) || args[0].kind_of?(Array)
-        if args[0].kind_of?(Array)
-          active_record_class.find_without_objectid_columns(args[0].map { |x| to_valid_value_for_column(active_record_class.primary_key) }, &block)
-        else
-          active_record_class.find_without_objectid_columns(to_valid_value_for_column(active_record_class.primary_key, args[0]))
-        end
-      else
-        active_record_class.find_without_objectid_columns(*args, &block)
       end
     end
 
