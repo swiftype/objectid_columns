@@ -42,7 +42,14 @@ Brought to you by the folks at [Swiftype](https://www.swiftype.com). First versi
 
 ## Installation
 
-Add this line to your application's Gemfile:
+First, make sure you have either `BSON::ObjectId` or `Moped::BSON::ObjectId` defined in your Rails environment;
+these are the two ObjectId classes that `ObjectidColumns` can work with. If you don't have either defined, add one
+of these lines to your `Gemfile` (loading both is fine, but unnecessary):
+
+       gem 'bson'
+    OR gem 'moped'
+
+Now, add this line to your application's Gemfile:
 
     gem 'objectid_columns'
 
