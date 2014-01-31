@@ -133,6 +133,10 @@ describe "ObjectidColumns basic operations" do
               @model_class = model_class.to_s.constantize
             end
 
+            it "should fail autodetection, since there are no columns ending in _oid" do
+              expect { @model_class.has_objectid_columns }.to raise_error(ArgumentError)
+            end
+
             it "should allow using a binary ObjectId column as a primary key" do
               r1 = @model_class.new
               r1.name = 'row 1'
@@ -149,6 +153,9 @@ describe "ObjectidColumns basic operations" do
               expect(r2.id).to_not be_nil
               expect(r2.id).to be_an_objectid_object
               r2_id = r2.id
+
+              expect(r1.send(@model_class.primary_key)).to be_an_objectid_object_matching(r1.id)
+              expect(r2.send(@model_class.primary_key)).to be_an_objectid_object_matching(r2.id)
 
               r1_again = @model_class.find(r1.id)
               expect(r1_again.name).to eq('row 1')
