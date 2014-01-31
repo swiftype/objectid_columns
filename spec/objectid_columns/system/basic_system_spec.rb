@@ -151,13 +151,18 @@ describe "ObjectidColumns basic operations" do
               r2_id = r2.id
 
               r1_again = @model_class.find(r1.id)
-              r1_again.name.should == 'row 1'
+              expect(r1_again.name).to eq('row 1')
 
               r2_again = @model_class.find(r2.id)
-              r2_again.name.should == 'row 2'
+              expect(r2_again.name).to eq('row 2')
 
-              @model_class.where(:name => 'row 1').first.id.should == r1_id
-              @model_class.where(:name => 'row 2').first.id.should == r2_id
+              expect(@model_class.where(:name => 'row 1').first.id).to eq(r1_id)
+              expect(@model_class.where(:name => 'row 2').first.id).to eq(r2_id)
+
+              find_by_id_method = "find_by_#{@model_class.primary_key}"
+              expect(@model_class.send(find_by_id_method, r1.id).id).to eq(r1_id)
+              expect(@model_class.send(find_by_id_method, r2.id).id).to eq(r2_id)
+              expect(@model_class.send(find_by_id_method, new_oid)).to be_nil
             end
           end
         end
