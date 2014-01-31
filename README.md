@@ -30,6 +30,12 @@ ObjectidColumns supports Ruby 1.8.7, 1.9.3, 2.0.0, and 2.1.0, plus JRuby 1.7.9; 
 tested against; while it will not work with ActiveRecord 2.x, it is otherwise highly unlikely to be sensitive to
 exact ActiveRecord or Ruby versions, or type of RDBMS, and generally should work with most combinations.)
 
+*Note*: If you use SQLite3 with ActiveRecord 3.1.x on MRI (_i.e._, not JRuby), or SQLite3 with ActiveRecord 3.2.x on
+MRI 1.8.7, there is a bug in the SQLite3-ActiveRecord integration that causes ObjectId primary keys to not work. (They
+are inserted properly, but searching by primary key fails.) Needless to say, these are very rare combinations of
+software to be running in production, but it's worth noting. (ActiveRecord 3.0.x or 3.2.x work fine with SQLite3 on
+MRI; SQLite3 with ActiveRecord 3.2.x works fine on MRI >= 1.9.3; and MySQL and PostgreSQL work perfectly everywhere.)
+
 Current build status: ![Current Build Status](https://api.travis-ci.org/swiftype/objectid_columns.png?branch=master)
 
 Brought to you by the folks at [Swiftype](https://www.swiftype.com). First version written by [Andrew Geweke](https://www.github.com/ageweke).
