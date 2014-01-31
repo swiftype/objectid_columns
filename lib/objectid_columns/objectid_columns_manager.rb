@@ -1,10 +1,20 @@
 require 'objectid_columns/dynamic_methods_module'
 
 module ObjectidColumns
+  # The ObjectidColumnsManager does all the real work of the ObjectidColumns gem, in many ways -- it takes care of
+  # reading ObjectId values and transforming them to objects, transforming supplied data to the right format when
+  # writing them, handling primary-key definitions and queries.
+  #
+  # This is a separate class, rather than being mixed into the actual ActiveRecord class, so that we can add methods
+  # and define constants here without polluting the namespace of the underlying class.
   class ObjectidColumnsManager
+    # NOTE: These constants are used in a metaprogrammed fashion in #has_objectid_columns, below. If you rename them,
+    # you must change that, too.
     BINARY_OBJECTID_LENGTH = 12
     STRING_OBJECTID_LENGTH = 24
 
+    # Creates a new instance. There should only ever be a single instance for a given ActiveRecord class, accessible
+    # via ObjectidColumns::HasObjectidColumns.objectid_columns_manager.
     def initialize(active_record_class)
       raise ArgumentError, "You must supply a Class, not: #{active_record_class.inspect}" unless active_record_class.kind_of?(Class)
       raise ArgumentError, "You must supply a Class that's a descendant of ActiveRecord::Base, not: #{active_record_class.inspect}" unless superclasses(active_record_class).include?(::ActiveRecord::Base)
@@ -12,6 +22,7 @@ module ObjectidColumns
       @active_record_class = active_record_class
       @oid_columns = { }
       @dynamic_methods_module = ObjectidColumns::DynamicMethodsModule.new(active_record_class, :ObjectidColumnsDynamicMethods)
+
       @class_dynamic_methods_module = Module.new
       @active_record_class.send(:extend, @class_dynamic_methods_module)
     end
