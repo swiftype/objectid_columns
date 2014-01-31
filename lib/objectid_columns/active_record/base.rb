@@ -12,14 +12,11 @@ module ObjectidColumns
           false
         end
 
-        def has_objectid_columns(*args)
-          include ::ObjectidColumns::HasObjectidColumns
-          has_objectid_columns(*args)
-        end
-
-        def has_objectid_column(*args)
-          include ::ObjectidColumns::HasObjectidColumns
-          has_objectid_column(*args)
+        [ :has_objectid_columns, :has_objectid_column, :has_objectid_primary_key ].each do |method_name|
+          define_method(method_name) do |*args|
+            include ::ObjectidColumns::HasObjectidColumns
+            send(method_name, *args)
+          end
         end
       end
     end

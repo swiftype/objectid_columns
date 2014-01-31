@@ -62,6 +62,10 @@ module ObjectidColumns
     def construct_objectid(hex_string)
       preferred_bson_class.send(:from_string, hex_string)
     end
+
+    def new_objectid
+      preferred_bson_class.new
+    end
   end
 end
 

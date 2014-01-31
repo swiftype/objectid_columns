@@ -14,6 +14,61 @@ module ObjectidColumns
       @dynamic_methods_module = ObjectidColumns::DynamicMethodsModule.new(active_record_class, :ObjectidColumnsDynamicMethods)
     end
 
+    def has_objectid_primary_key(primary_key_name = nil)
+      pk = active_record_class.primary_key
+
+      if pk && primary_key_name && pk.to_s != primary_key_name.to_s
+        raise ArgumentError, "Primary-key mismatch: #{active_record_class.name} thinks its primary key is #{pk.inspect}, but you're trying to declare an ObjectId primary key named #{primary_key_name.inspect}. They need to be the same, or just omit the name of the key from the call (just 'has_objectid_primary_key' by itself)."
+      end
+
+      if (! pk) && (! primary_key_name)
+        raise ArgumentError, "Class #{active_record_class.name} has no primary key set, and you haven't supplied one to .has_objectid_primary_key. Either set one before this call (using self.primary_key = :foo), or supply one to this call (has_objectid_primary_key :foo) and we'll set it for you."
+      end
+
+      if (! pk)
+        active_record_class.primary_key = pk = primary_key_name
+      end
+
+      # In case someone is using composite_primary_key
+      raise "You can't have an ObjectId primary key that's not a String or Symbol: #{pk.inspect}" unless pk.kind_of?(String) || pk.kind_of?(Symbol)
+
+      has_objectid_column pk
+
+      unless pk.to_s == 'id'
+        p = pk
+        dynamic_methods_module.define_method(:id) { read_objectid_column(p) }
+        dynamic_methods_module.define_method("id=") { |new_value| write_objectid_column(p, new_value) }
+      end
+
+      active_record_class.send(:before_create, :assign_objectid_primary_key)
+
+      [ :find ].each do |class_method_name|
+        metaclass = (class << active_record_class; self; end)
+        metaclass.send(:define_method, "#{class_method_name}_with_objectid_columns") do |*args, &block|
+          objectid_columns_manager.send("class_#{class_method_name}", *args, &block)
+        end
+
+        if active_record_class.methods(false).include?(class_method_name)
+          metaclass.send(:alias_method_chain, class_method_name, :objectid_columns)
+        else
+          metaclass.send(:alias_method, "#{class_method_name}_without_objectid_columns", class_method_name)
+          metaclass.send(:alias_method, class_method_name, "#{class_method_name}_with_objectid_columns")
+        end
+      end
+    end
+
+    def class_find(*args, &block)
+      if args.length == 1 && args[0].kind_of?(String) || ObjectidColumns.is_valid_bson_object?(args[0]) || args[0].kind_of?(Array)
+        if args[0].kind_of?(Array)
+          active_record_class.find_without_objectid_columns(args[0].map { |x| to_valid_value_for_column(active_record_class.primary_key) }, &block)
+        else
+          active_record_class.find_without_objectid_columns(to_valid_value_for_column(active_record_class.primary_key, args[0]))
+        end
+      else
+        active_record_class.find_without_objectid_columns(*args, &block)
+      end
+    end
+
     def has_objectid_columns(*columns)
       return unless active_record_class.table_exists?
 
@@ -70,19 +125,25 @@ module ObjectidColumns
       if (! new_value)
         model[column_name] = new_value
       elsif new_value.respond_to?(:to_bson_id)
-        write_value = new_value.to_bson_id
-        unless ObjectidColumns.is_valid_bson_object?(write_value)
-          raise "We called #to_bson_id on #{new_value.inspect}, but it returned this, which is not a BSON ID object: #{write_value.inspect}"
-        end
-
-        case objectid_column_type(column_name)
-        when :binary then model[column_name] = write_value.to_binary
-        when :string then model[column_name] = write_value.to_s
-        else unknown_type(type)
-        end
+        model[column_name] = to_valid_value_for_column(column_name, new_value)
       else
         raise ArgumentError, "When trying to write the ObjectId column #{column_name.inspect} on #{inspect}, we were passed the following value, which doesn't seem to be a valid BSON ID in any format: #{new_value.inspect}"
       end
+    end
+
+    def to_valid_value_for_column(column_name, value)
+      out = value.to_bson_id
+      unless ObjectidColumns.is_valid_bson_object?(out)
+        raise "We called #to_bson_id on #{value.inspect}, but it returned this, which is not a BSON ID object: #{out.inspect}"
+      end
+
+      case objectid_column_type(column_name)
+      when :binary then out = out.to_binary
+      when :string then out = out.to_s
+      else unknown_type(type)
+      end
+
+      out
     end
 
     def translate_objectid_query_pair(query_key, query_value)

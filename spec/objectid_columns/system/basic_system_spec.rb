@@ -74,9 +74,95 @@ describe "ObjectidColumns basic operations" do
         expect { ::Spectable.class_eval { has_objectid_column :some_int_column } }.to raise_error(ArgumentError)
       end
 
+      it "should not allow defining a column that doesn't exist" do
+        expect { ::Spectable.class_eval { has_objectid_column :unknown_column } }.to raise_error(ArgumentError)
+      end
+
       it "should not fail if the table doesn't exist" do
         define_model_class(:SpectableNonexistent, 'objectidcols_spec_table_nonexistent') { }
         expect { ::SpectableNonexistent.class_eval { has_objectid_column :foo } }.to_not raise_error
+      end
+
+      describe "primary key column support" do
+        before :each do
+          migrate do
+            drop_table :objectidcols_spec_pk_bin rescue nil
+            create_table :objectidcols_spec_pk_bin, :id => false do |t|
+              t.binary :id, :limit => 12, :null => false
+              t.string :name
+            end
+
+            drop_table :objectidcols_spec_pk_str rescue nil
+            create_table :objectidcols_spec_pk_str, :id => false do |t|
+              t.string :id, :limit => 24, :null => false
+              t.string :name
+            end
+
+            drop_table :objectidcols_spec_pk_alt rescue nil
+            create_table :objectidcols_spec_pk_alt, :id => false do |t|
+              t.binary :some_name, :limit => 12, :null => false
+              t.string :name
+            end
+
+            drop_table :objectidcols_spec_pk_implicit rescue nil
+            create_table :objectidcols_spec_pk_implicit, :id => false do |t|
+              t.binary :some_name, :limit => 12, :null => false
+              t.string :name
+            end
+          end
+
+          define_model_class(:SpectablePkBin, :objectidcols_spec_pk_bin) { self.primary_key = :id }
+          define_model_class(:SpectablePkStr, :objectidcols_spec_pk_str) { self.primary_key = :id }
+          define_model_class(:SpectablePkAlt, :objectidcols_spec_pk_alt) { self.primary_key = :some_name }
+          define_model_class(:SpectablePkImplicit, :objectidcols_spec_pk_implicit) { }
+
+          ::SpectablePkBin.class_eval { has_objectid_primary_key }
+          ::SpectablePkStr.class_eval { has_objectid_primary_key }
+          ::SpectablePkAlt.class_eval { has_objectid_primary_key }
+          ::SpectablePkImplicit.class_eval { has_objectid_primary_key :some_name }
+        end
+
+        after :each do
+          drop_table :objectidcols_spec_pk_bin rescue nil
+          drop_table :objectidcols_spec_pk_str rescue nil
+          drop_table :objectidcols_spec_pk_table_alt rescue nil
+          drop_table :objectidcols_spec_pk_implicit rescue nil
+        end
+
+        [ :SpectablePkBin, :SpectablePkStr, :SpectablePkAlt, :SpectablePkImplicit ].each do |model_class|
+          context "on model #{model_class}" do
+            before :each do
+              @model_class = model_class.to_s.constantize
+            end
+
+            it "should allow using a binary ObjectId column as a primary key" do
+              r1 = @model_class.new
+              r1.name = 'row 1'
+              expect(r1.id).to be_nil
+              r1.save!
+              expect(r1.id).to_not be_nil
+              expect(r1.id).to be_an_objectid_object
+              r1_id = r1.id
+
+              r2 = @model_class.new
+              r2.name = 'row 2'
+              expect(r2.id).to be_nil
+              r2.save!
+              expect(r2.id).to_not be_nil
+              expect(r2.id).to be_an_objectid_object
+              r2_id = r2.id
+
+              r1_again = @model_class.find(r1.id)
+              r1_again.name.should == 'row 1'
+
+              r2_again = @model_class.find(r2.id)
+              r2_again.name.should == 'row 2'
+
+              @model_class.where(:name => 'row 1').first.id.should == r1_id
+              @model_class.where(:name => 'row 2').first.id.should == r2_id
+            end
+          end
+        end
       end
 
       context "with a single, manually-defined column" do

@@ -17,12 +17,17 @@ module ObjectidColumns
       self.class.objectid_columns_manager.write_objectid_column(self, column_name, new_value)
     end
 
+    def assign_objectid_primary_key
+      self.id ||= ObjectidColumns.new_objectid
+    end
+
     module ClassMethods
       def has_objectid_columns?
         true
       end
 
-      delegate :has_objectid_columns, :has_objectid_column, :translate_objectid_query_pair, :to => :objectid_columns_manager
+      delegate :has_objectid_columns, :has_objectid_column, :has_objectid_primary_key,
+        :translate_objectid_query_pair, :to => :objectid_columns_manager
 
       def objectid_columns_manager
         @objectid_columns_manager ||= ::ObjectidColumns::ObjectidColumnsManager.new(self)
