@@ -17,6 +17,9 @@ Once declared, an ObjectId column will return instances of either `BSON::ObjectI
 column. It will accept a String (in either hex or binary formats) or an instance of either of those classes when
 assigning to the column.
 
+`ObjectidColumns` also allows you to use ObjectId values as primary keys; it will assign them to new records by
+default, and make sure `find(id)` accepts them.
+
 This gem requires either the `moped` gem (which defines `Moped::BSON::ObjectId`) or the `bson` gem (which defines
 `BSON::ObjectId`) for the actual ObjectId classes it uses. It declares an official dependency on neither, because we
 want to allow you to use either one. It will accept either one when assigning ObjectIds; it will return ObjectIds as
@@ -89,6 +92,33 @@ Once you have declared such a column:
 Note that to assign a binary-format string, it must have an encoding of `Encoding::BINARY` (which is an alias for
 `Encoding::ASCII-8BIT`). (If your string has a different encoding, it may be coming from a source that does not
 actually support full binary data transparently, which _will_ cause big problems.)
+
+### Using an ObjectId for a Primary Key
+
+You can use ObjectId values as primary keys:
+
+    class MyModel < ActiveRecord::Base
+      has_objectid_primary_key
+    end
+
+Perhaps obviously, your primary-key column must either be `:binary` of length >= 12 or `:string` of length >= 24.
+
+If your primary-key column is not called `:id`, you must do one of two things:
+
+* Set the primary key on the class _before_ you call `has_objectid_primary_key`, by just using the normal ActiveRecord
+  `self.primary_key = :foo` syntax.
+* Pass the primary key as an argument to `has_objectid_primary_key`: `has_objectid_primary_key :foo`.
+
+(The two are exactly equivalent.)
+
+When you do this, `ObjectidColumns` adds a `before_create` hook to your model, assigning a new ObjectId immediately
+before the first time a row is saved in the database. This will not replace an existing ID, so, if you always (or
+sometimes) assign a new ID yourself, `ObjectidColumns` will not overwrite your ID.
+
+Perhaps obviously, this means that new IDs are generated and stored client-side; you almost certainly should declare
+your primary-key column as `NOT NULL`, but you don't need to give it a default (and probably shouldn't, unless you're
+using a database function that is capable of generating correctly-formatted ObjectId values using the correct
+algorithm).
 
 ### Setting the Preferred Class
 
