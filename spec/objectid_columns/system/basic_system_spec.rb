@@ -86,25 +86,25 @@ describe "ObjectidColumns basic operations" do
           migrate do
             drop_table :objectidcols_spec_pk_bin rescue nil
             create_table :objectidcols_spec_pk_bin, :id => false do |t|
-              t.binary :id, :limit => 12, :null => false
+              t.binary :id, :null => false
               t.string :name
             end
 
             drop_table :objectidcols_spec_pk_str rescue nil
             create_table :objectidcols_spec_pk_str, :id => false do |t|
-              t.string :id, :limit => 24, :null => false
+              t.string :id, :null => false
               t.string :name
             end
 
             drop_table :objectidcols_spec_pk_alt rescue nil
             create_table :objectidcols_spec_pk_alt, :id => false do |t|
-              t.binary :some_name, :limit => 12, :null => false
+              t.binary :some_name, :null => false
               t.string :name
             end
 
             drop_table :objectidcols_spec_pk_implicit rescue nil
             create_table :objectidcols_spec_pk_implicit, :id => false do |t|
-              t.binary :some_name, :limit => 12, :null => false
+              t.binary :some_name, :null => false
               t.string :name
             end
           end
