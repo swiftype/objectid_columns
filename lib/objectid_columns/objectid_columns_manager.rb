@@ -22,9 +22,6 @@ module ObjectidColumns
       @active_record_class = active_record_class
       @oid_columns = { }
       @dynamic_methods_module = ObjectidColumns::DynamicMethodsModule.new(active_record_class, :ObjectidColumnsDynamicMethods)
-
-      @class_dynamic_methods_module = Module.new
-      @active_record_class.send(:extend, @class_dynamic_methods_module)
     end
 
     def has_objectid_primary_key(primary_key_name = nil)
@@ -55,7 +52,7 @@ module ObjectidColumns
       active_record_class.send(:before_create, :assign_objectid_primary_key)
 
       [ :find, :find_by_id ].each do |class_method_name|
-        @class_dynamic_methods_module.send(:define_method, class_method_name) do |*args, &block|
+        @dynamic_methods_module.define_class_method(class_method_name) do |*args, &block|
           if args.length == 1 && args[0].kind_of?(String) || ObjectidColumns.is_valid_bson_object?(args[0]) || args[0].kind_of?(Array)
             args[0] = if args[0].kind_of?(Array)
               args[0].map { |x| objectid_columns_manager.to_valid_value_for_column(primary_key, x) }

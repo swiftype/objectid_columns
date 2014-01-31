@@ -21,6 +21,11 @@ module ObjectidColumns
   # of which methods you've defined, and can remove them all with #remove_all_methods!. This allows you to construct
   # a much more reliable paradigm: instead of trying to figure out what methods you should remove and add when things
   # change, you can just call #remove_all_methods! and then redefine whatever methods _currently_ should exist.
+  #
+  # A DynamicMethodsModule also supports class methods; if you define a method with #define_class_method, it will be
+  # added to a module that the target class has called +extend+ on (rather than +include+), and hence will show up as
+  # a class method on that class. This is useful for the exact same reasons as the base DynamicMethodsModule; it allows
+  # for precedence control, use of +super+, namespacing, and dynamism.
   class DynamicMethodsModule < ::Module
     # Creates a new instance. +target_class+ is the Class into which this module should include itself; +name+ is the
     # name to which it should bind itself. (This will be bound as a constant inside that class, not at top-level on
@@ -48,10 +53,16 @@ but that class already has a constant named #{name.inspect}: #{existing.inspect}
         end
       end
 
+      @class_methods_module = Module.new
+      (class << @class_methods_module; self; end).send(:public, :private)
+      @target_class.const_set("#{@name}ClassMethods", @class_methods_module)
+      @target_class.send(:extend, @class_methods_module)
+
       @target_class.const_set(@name, self)
       @target_class.send(:include, self)
 
       @methods_defined = { }
+      @class_methods_defined = { }
 
       super(&block)
     end
@@ -65,6 +76,10 @@ but that class already has a constant named #{name.inspect}: #{existing.inspect}
         # some important ways.
         remove_method(method_name) if @methods_defined[method_name.to_sym]
       end
+
+      @class_methods_module.instance_methods.each do |method_name|
+        @class_methods_module.send(:remove_method, method_name) if @class_methods_defined[method_name]
+      end
     end
 
     # Defines a method. Works identically to Module#define_method, except that it's +public+ and #remove_all_methods!
@@ -73,6 +88,11 @@ but that class already has a constant named #{name.inspect}: #{existing.inspect}
       name = name.to_sym
       super(name, &block)
       @methods_defined[name] = true
+    end
+
+    # Defines a class method.
+    def define_class_method(name, &block)
+      @class_methods_module.send(:define_method, name, &block)
     end
 
     # Makes it so you can say, for example:
