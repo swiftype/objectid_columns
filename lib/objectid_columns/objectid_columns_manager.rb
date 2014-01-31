@@ -24,6 +24,9 @@ module ObjectidColumns
       @dynamic_methods_module = ObjectidColumns::DynamicMethodsModule.new(active_record_class, :ObjectidColumnsDynamicMethods)
     end
 
+    # Declares that this class is using an ObjectId as its primary key. Ordinarily, this requires no arguments;
+    # however, if your primary key is not named +id+ and you have not yet told ActiveRecord this (using
+    # <tt>self.primary_key = :foo</tt>), then
     def has_objectid_primary_key(primary_key_name = nil)
       primary_key_name = primary_key_name.to_s if primary_key_name
       pk = active_record_class.primary_key
@@ -162,6 +165,11 @@ module ObjectidColumns
           else unknown_type(type)
           end
           [ query_key, v ]
+        elsif query_value.kind_of?(Array)
+          array = query_value.map do |v|
+            translate_objectid_query_pair(query_key, v)[1]
+          end
+          [ query_key, array ]
         else
           raise ArgumentError, "You're trying to constrain #{active_record_class.name} on column #{query_key.inspect}, which is an ObjectId column, but the value you passed, #{query_value.inspect}, is not a valid format for an ObjectId."
         end
@@ -195,7 +203,9 @@ module ObjectidColumns
     end
 
     def autodetect_columns
-      active_record_class.columns.select { |c| c.name =~ /_oid$/i }.map(&:name)
+      out = active_record_class.columns.select { |c| c.name =~ /_oid$/i }.map(&:name).map(&:to_s)
+      out -= [ active_record_class.primary_key ].compact.map(&:to_s)
+      out
     end
 
     def to_objectid_columns(columns)

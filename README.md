@@ -77,6 +77,9 @@ explicitly:
 This will not only define `some_oid` and `foo` as being ObjectId columns, but it will also skip the automatic detection
 of columns ending in `_oid`.
 
+ObjectidColumns will never automatically make a primary-key column an ObjectId, even if it ends with `_oid`; if you
+want a primary key to be an ObjectId, you must do that explicitly, using `has_objectid_primary_key`, below.
+
 Note that trying to declare a column as an ObjectId column if it isn't of a supported type (a type that ActiveRecord
 considers to be `:string` or `:binary`), or if it isn't long enough to support an ObjectId (twelve characters for
 binary columns, 24 for string columns); this will happen from the `has_objectid_columns` call (so at load time for the

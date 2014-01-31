@@ -156,6 +156,8 @@ describe "ObjectidColumns basic operations" do
               r2_again = @model_class.find(r2.id)
               expect(r2_again.name).to eq('row 2')
 
+              expect(@model_class.find([ r1.id, r2. id ]).map(&:id).sort_by(&:to_s)).to eq([ r1_id, r2_id ].sort_by(&:to_s))
+
               expect(@model_class.where(:name => 'row 1').first.id).to eq(r1_id)
               expect(@model_class.where(:name => 'row 2').first.id).to eq(r2_id)
 
@@ -163,6 +165,31 @@ describe "ObjectidColumns basic operations" do
               expect(@model_class.send(find_by_id_method, r1.id).id).to eq(r1_id)
               expect(@model_class.send(find_by_id_method, r2.id).id).to eq(r2_id)
               expect(@model_class.send(find_by_id_method, new_oid)).to be_nil
+            end
+
+            it "should not pick up primary-key columns automatically, even if they're named _oid" do
+              migrate do
+                drop_table :objectidcols_spec_pk_auto rescue nil
+                create_table :objectidcols_spec_pk_auto, :id => false do |t|
+                  t.binary :foo_oid, :null => false
+                  t.binary :bar_oid
+                  t.string :name
+                end
+              end
+
+              define_model_class(:SpectablePkAuto, :objectidcols_spec_pk_auto) { self.primary_key = 'foo_oid' }
+
+              ::SpectablePkAuto.has_objectid_columns
+              r = ::SpectablePkAuto.new
+              r.foo_oid = 'foobar' # this will only work if we do NOT think it's an ObjectId
+              expect { r.bar_oid = 'foobar' }.to raise_error(ArgumentError)
+              r.bar_oid = the_bar_oid = new_oid.to_s
+
+              expect(r.bar_oid).to be_an_objectid_object_matching(the_bar_oid)
+
+              migrate do
+                drop_table :objectidcols_spec_pk_auto rescue nil
+              end
             end
           end
         end
@@ -282,6 +309,7 @@ describe "ObjectidColumns basic operations" do
 
           expect(::Spectable.where(:perfect_s_oid => @oid1).to_a.map(&:id)).to eq([ r1.id ])
           expect(::Spectable.where(:perfect_s_oid => @oid2).to_a.map(&:id)).to eq([ r2.id ])
+          expect(::Spectable.where(:perfect_s_oid => [ @oid1, @oid2 ]).to_a.map(&:id).sort).to eq([ r1.id, r2.id ].sort)
         end
       end
 
