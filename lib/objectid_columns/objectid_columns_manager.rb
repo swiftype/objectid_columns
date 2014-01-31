@@ -1,4 +1,5 @@
 require 'objectid_columns/dynamic_methods_module'
+require 'pry'
 
 module ObjectidColumns
   class ObjectidColumnsManager
@@ -15,25 +16,27 @@ module ObjectidColumns
     end
 
     def has_objectid_primary_key(primary_key_name = nil)
-      pk = active_record_class.primary_key || primary_key_name
+      primary_key_name = primary_key_name.to_s if primary_key_name
+      pk = active_record_class.primary_key
 
-      unless pk
+      if (! pk) && (! primary_key_name)
         raise ArgumentError, "Class #{active_record_class.name} has no primary key set, and you haven't supplied one to .has_objectid_primary_key. Either set one before this call (using self.primary_key = :foo), or supply one to this call (has_objectid_primary_key :foo) and we'll set it for you."
       end
 
-      if pk && primary_key_name && pk.to_s != primary_key_name.to_s
-        raise ArgumentError, "Primary-key mismatch: #{active_record_class.name} thinks its primary key is #{pk.inspect}, but you're trying to declare an ObjectId primary key named #{primary_key_name.inspect}. They need to be the same, or just omit the name of the key from the call (just 'has_objectid_primary_key' by itself)."
+      pk = pk.to_s if pk
+
+      if (! pk) || (primary_key_name && pk.to_s != primary_key_name.to_s)
+        active_record_class.primary_key = pk = primary_key_name
       end
 
       # In case someone is using composite_primary_key
       raise "You can't have an ObjectId primary key that's not a String or Symbol: #{pk.inspect}" unless pk.kind_of?(String) || pk.kind_of?(Symbol)
 
-      active_record_class.primary_key ||= pk
       has_objectid_column pk
 
       unless pk.to_s == 'id'
         p = pk
-        dynamic_methods_module.define_method(:id) { read_objectid_column(p) }
+        dynamic_methods_module.define_method("id") { read_objectid_column(p) }
         dynamic_methods_module.define_method("id=") { |new_value| write_objectid_column(p, new_value) }
       end
 
@@ -102,12 +105,16 @@ module ObjectidColumns
     end
 
     def read_objectid_column(model, column_name)
+      column_name = column_name.to_s
       value = model[column_name]
       return value unless value
 
       unless value.kind_of?(String)
         raise "When trying to read the ObjectId column #{column_name.inspect} on #{inspect},  we got the following data from the database; we expected a String: #{value.inspect}"
       end
+
+      # ugh...ActiveRecord 3.1.x can return this in certain circumstances
+      return nil if value.length == 0
 
       case objectid_column_type(column_name)
       when :binary then value = value[0..(BINARY_OBJECTID_LENGTH - 1)]
@@ -119,6 +126,7 @@ module ObjectidColumns
     end
 
     def write_objectid_column(model, column_name, new_value)
+      column_name = column_name.to_s
       if (! new_value)
         model[column_name] = new_value
       elsif new_value.respond_to?(:to_bson_id)

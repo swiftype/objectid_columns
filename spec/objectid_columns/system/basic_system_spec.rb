@@ -109,9 +109,9 @@ describe "ObjectidColumns basic operations" do
             end
           end
 
-          define_model_class(:SpectablePkBin, :objectidcols_spec_pk_bin) { self.primary_key = :id }
-          define_model_class(:SpectablePkStr, :objectidcols_spec_pk_str) { self.primary_key = :id }
-          define_model_class(:SpectablePkAlt, :objectidcols_spec_pk_alt) { self.primary_key = :some_name }
+          define_model_class(:SpectablePkBin, :objectidcols_spec_pk_bin) { self.primary_key = 'id' }
+          define_model_class(:SpectablePkStr, :objectidcols_spec_pk_str) { self.primary_key = 'id' }
+          define_model_class(:SpectablePkAlt, :objectidcols_spec_pk_alt) { self.primary_key = 'some_name' }
           define_model_class(:SpectablePkImplicit, :objectidcols_spec_pk_implicit) { }
 
           ::SpectablePkBin.class_eval { has_objectid_primary_key }
