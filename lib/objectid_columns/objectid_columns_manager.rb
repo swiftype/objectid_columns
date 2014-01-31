@@ -188,9 +188,6 @@ module ObjectidColumns
 
     alias_method :has_objectid_column, :has_objectid_columns
 
-    private
-    attr_reader :active_record_class, :dynamic_methods_module, :oid_columns
-
     # Given a value for an ObjectId column -- could be a String in either hex or binary formats, or an
     # ObjectId object -- returns a String of the correct type for the given column (_i.e._, either the binary or hex
     # String representation of an ObjectId, depending on the type of the underlying column).
@@ -208,6 +205,9 @@ module ObjectidColumns
 
       out
     end
+
+    private
+    attr_reader :active_record_class, :dynamic_methods_module, :oid_columns
 
     # Given a key in a Hash supplied to +where+ for the given ActiveRecord class, returns a two-element Array
     # consisting of the key and the proper value we should actually use to query on that column. If the key does not
