@@ -50,6 +50,10 @@ module ObjectidColumns
         config[:database_gem_name]
       end
 
+      def adapter_name
+        config[:config][:adapter]
+      end
+
       private
       def config
         config_from_config_file || travis_ci_config_from_environment || invalid_config_file!

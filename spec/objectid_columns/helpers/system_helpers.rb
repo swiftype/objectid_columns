@@ -1,5 +1,6 @@
 require 'active_record'
 require 'active_record/migration'
+require 'objectid_columns/helpers/database_helper'
 
 module ObjectidColumns
   module Helpers
@@ -22,9 +23,21 @@ module ObjectidColumns
         model_class.class_eval(&block)
       end
 
+      def ensure_database_is_set_up!
+        ::ObjectidColumns::Helpers::SystemHelpers.database_helper
+      end
+
       class << self
+        def database_helper
+          @database_helper ||= begin
+            out = ObjectidColumns::Helpers::DatabaseHelper.new
+            out.setup_activerecord!
+            out
+          end
+        end
+
         def binary_column(length)
-          case OBJECTID_COLUMNS_SPEC_DATABASE_CONFIG[:config][:adapter].to_s
+          case ObjectidColumns::Helpers::SystemHelpers.database_helper.adapter_name.to_s
           when /mysql/, /sqlite/ then "BINARY(#{length})"
           when /postgres/ then "BYTEA"
           else raise "Don't yet know how to define a binary column for database #{OBJECTID_COLUMNS_SPEC_DATABASE_CONFIG[:config][:adapter].inspect}"
@@ -32,7 +45,7 @@ module ObjectidColumns
         end
 
         def supports_length_limits_on_binary_columns?
-          case OBJECTID_COLUMNS_SPEC_DATABASE_CONFIG[:config][:adapter].to_s
+          case ObjectidColumns::Helpers::SystemHelpers.database_helper.adapter_name.to_s
           when /mysql/, /sqlite/ then true
           when /postgres/ then false
           else raise "Don't yet know whether database #{OBJECTID_COLUMNS_SPEC_DATABASE_CONFIG[:config][:adapter].inspect} supports limits on binary columns"

@@ -1,6 +1,5 @@
 require 'objectid_columns'
 require 'objectid_columns/helpers/system_helpers'
-require 'objectid_columns/helpers/database_helper'
 
 unless defined?(VALID_OBJECTID_CLASSES)
   VALID_OBJECTID_CLASSES = [ BSON::ObjectId ]
@@ -42,8 +41,7 @@ describe "ObjectidColumns basic operations" do
   include ObjectidColumns::Helpers::SystemHelpers
 
   before :each do
-    @dh = ObjectidColumns::Helpers::DatabaseHelper.new
-    @dh.setup_activerecord!
+    ensure_database_is_set_up!
 
     create_standard_system_spec_tables!
     create_standard_system_spec_models!
@@ -63,8 +61,8 @@ describe "ObjectidColumns basic operations" do
         @tc.new
       end
 
-      if ObjectidColumns::Helpers::SystemHelpers.supports_length_limits_on_binary_columns?
-        it "should not allow defining a column that's too short" do
+      it "should not allow defining a column that's too short" do
+        if ObjectidColumns::Helpers::SystemHelpers.supports_length_limits_on_binary_columns?
           expect { ::Spectable.class_eval { has_objectid_column :too_short_b } }.to raise_error(ArgumentError)
           expect { ::Spectable.class_eval { has_objectid_column :too_short_s } }.to raise_error(ArgumentError)
         end
