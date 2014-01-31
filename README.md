@@ -89,9 +89,26 @@ Once you have declared such a column:
     my_model.my_oid = "52eab32878161f1314000002" # OK
     my_model.my_oid = "R\xEA\xB2\xCFx\x16\x1F\x13\x14\x00\x00\x01" # OK
 
+    MyModel.where(:my_oid => some_oid).first # => my_model -- i.e., where(...) works with a hash.
+
 Note that to assign a binary-format string, it must have an encoding of `Encoding::BINARY` (which is an alias for
 `Encoding::ASCII-8BIT`). (If your string has a different encoding, it may be coming from a source that does not
 actually support full binary data transparently, which _will_ cause big problems.)
+
+### Gotchas
+
+If you query on an ObjectId column and use the hash syntax &mdash; _i.e._, `MyModel.where(:some_oid => ...)` &mdash;
+then everything will work perfectly; `ObjectidColumns` looks for this syntax and properly translates the value from
+an ObjectId object, binary String, or hex String to the proper database value. On the other hand, if you specify a
+SQL statement or fragment of SQL yourself, you must do the translation, or you'll either get a database error or just
+no rows found:
+
+    MyModel.where("some_oid = ?", my_oid.to_bson_id.to_binary) # if some_oid is binary
+    MyModel.where("some_oid = ?", my_oid.to_bson_id.to_s)      # if some_oid is a String
+
+(Without actively parsing SQL, which is kind of an insane thing to do, there is no easy way around this. Even if we
+detected ObjectId objects in the set of values passed in, we'd have no way of figuring out which ObjectId column they
+were constraining on, and thus whether to turn them into binary or hexadecimal ObjectId values.)
 
 ### Using an ObjectId for a Primary Key
 
@@ -119,6 +136,7 @@ Perhaps obviously, this means that new IDs are generated and stored client-side;
 your primary-key column as `NOT NULL`, but you don't need to give it a default (and probably shouldn't, unless you're
 using a database function that is capable of generating correctly-formatted ObjectId values using the correct
 algorithm).
+
 
 ### Setting the Preferred Class
 
