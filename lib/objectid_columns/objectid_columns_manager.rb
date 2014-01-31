@@ -206,9 +206,6 @@ module ObjectidColumns
       out
     end
 
-    private
-    attr_reader :active_record_class, :dynamic_methods_module, :oid_columns
-
     # Given a key in a Hash supplied to +where+ for the given ActiveRecord class, returns a two-element Array
     # consisting of the key and the proper value we should actually use to query on that column. If the key does not
     # represent an ObjectID column, then this will just be exactly the data passed in; however, if it does represent
@@ -255,16 +252,25 @@ module ObjectidColumns
       end
     end
 
+    private
+    attr_reader :active_record_class, :dynamic_methods_module, :oid_columns
+
+    # Given the name of a column -- which must be an ObjectId column -- returns its type, either +:binary+ or
+    # +:string+.
     def objectid_column_type(column_name)
       out = oid_columns[column_name.to_sym]
       raise "Something is horribly wrong; #{column_name.inspect} is not an ObjectId column -- we have: #{oid_columns.keys.inspect}" unless out
       out
     end
 
+    # Raises an exception -- used for +case+ statements where we switch on the type of the column. Useful so that if,
+    # in the future, we support a new column type, we won't forget to add a case for it in various places.
     def unknown_type(type)
       raise "Bug in ObjectidColumns in this method -- type #{type.inspect} does not have a case here."
     end
 
+    # What's the entire superclass chain of the given class? Used in the constructor to make sure something is
+    # actually a descendant of ActiveRecord::Base.
     def superclasses(klass)
       out = [ ]
       while (sc = klass.superclass)
@@ -274,8 +280,12 @@ module ObjectidColumns
       out
     end
 
+    # If someone called +has_objectid_columns+ but didn't pass an argument, this method detects which columns we should
+    # automatically turn into ObjectId columns -- which means any columns ending in +_oid+, except for the primary key.
     def autodetect_columns
       out = active_record_class.columns.select { |c| c.name =~ /_oid$/i }.map(&:name).map(&:to_s)
+
+      # Make sure we never, ever automatically make the primary-key column an ObjectId column.
       out -= [ active_record_class.primary_key ].compact.map(&:to_s)
 
       unless out.length > 0
@@ -283,18 +293,6 @@ module ObjectidColumns
       end
 
       out
-    end
-
-    def to_objectid_columns(columns)
-      columns = columns.map { |c| c.to_s.strip }.uniq
-      column_objects = active_record_class.columns.select { |c| columns.include?(c.name) }
-      missing = columns - column_objects.map(&:name)
-
-      if missing.length > 0
-        raise ArgumentError, "The following do not appear to be columns on #{active_record_class}, and thus can't possibly be ObjectId columns: #{missing.inspect}"
-      end
-
-      column_objects.map { |column_object| ObjectidColumns::ObjectidColumn.new(self, column_object) }
     end
   end
 end

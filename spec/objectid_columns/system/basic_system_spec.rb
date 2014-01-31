@@ -317,6 +317,14 @@ describe "ObjectidColumns basic operations" do
           expect(::Spectable.where(:perfect_s_oid => @oid1).to_a.map(&:id)).to eq([ r1.id ])
           expect(::Spectable.where(:perfect_s_oid => @oid2).to_a.map(&:id)).to eq([ r2.id ])
           expect(::Spectable.where(:perfect_s_oid => [ @oid1, @oid2 ]).to_a.map(&:id).sort).to eq([ r1.id, r2.id ].sort)
+
+          expect(::Spectable.where(:perfect_s_oid => @oid1.to_s).to_a.map(&:id)).to eq([ r1.id ])
+          expect(::Spectable.where(:perfect_s_oid => @oid2.to_s).to_a.map(&:id)).to eq([ r2.id ])
+          expect(::Spectable.where(:perfect_s_oid => [ @oid1, @oid2 ].map(&:to_s)).to_a.map(&:id).sort).to eq([ r1.id, r2.id ].sort)
+
+          expect(::Spectable.where(:perfect_s_oid => @oid1.to_binary).to_a.map(&:id)).to eq([ r1.id ])
+          expect(::Spectable.where(:perfect_s_oid => @oid2.to_binary).to_a.map(&:id)).to eq([ r2.id ])
+          expect(::Spectable.where(:perfect_s_oid => [ @oid1, @oid2 ].map(&:to_binary)).to_a.map(&:id).sort).to eq([ r1.id, r2.id ].sort)
         end
       end
 
