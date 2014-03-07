@@ -1,5 +1,6 @@
 require 'objectid_columns'
 require 'objectid_columns/helpers/system_helpers'
+require 'composite_primary_keys'
 
 unless defined?(VALID_OBJECTID_CLASSES)
   VALID_OBJECTID_CLASSES = [ BSON::ObjectId ]
@@ -79,6 +80,37 @@ describe "ObjectidColumns basic operations" do
       it "should not fail if the table doesn't exist" do
         define_model_class(:SpectableNonexistent, 'objectidcols_spec_table_nonexistent') { }
         expect { ::SpectableNonexistent.class_eval { has_objectid_column :foo } }.to_not raise_error
+      end
+
+      describe "composite primary key column support" do
+        before :each do
+          migrate do
+            drop_table :objectidcols_spec_pk_cmp rescue nil
+            create_table :objectidcols_spec_pk_cmp, :id => false do |t|
+              t.binary :some_oid, :null => false
+              t.string :more_pk, :null => false
+              t.string :value
+            end
+          end
+
+          define_model_class(:SpectablePkCmp, :objectidcols_spec_pk_cmp) { self.primary_keys = [ 'some_oid', 'more_pk' ] }
+          ::SpectablePkCmp.class_eval { has_objectid_primary_key }
+          @model_class = ::SpectablePkCmp
+        end
+
+        it "should allow using a composite primary key in individual parts" do
+          oid = new_oid
+          instance = @model_class.new
+          instance.some_oid = new_oid
+          instance.more_pk = "foo"
+          instance.value = "foo value"
+          instance.save!
+
+          instance_again = @model_class.find([ instance.some_oid, instance.more_pk ])
+          expect(instance_again.value).to eq(instance.value)
+          expect(instance_again.some_oid).to eq(instance.some_oid)
+          expect(instance_again.more_pk).to eq(instance.more_pk)
+        end
       end
 
       describe "primary key column support" do

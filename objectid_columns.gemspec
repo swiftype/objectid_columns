@@ -37,6 +37,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 2.14"
   spec.add_development_dependency "moped", "~> 1.5" unless RUBY_VERSION =~ /^1\.8\./
   spec.add_development_dependency "bson", "~> 1.9"
+  spec.add_development_dependency "composite_primary_keys", "~> 6.0"
 
   require File.expand_path(File.join(File.dirname(__FILE__), 'spec', 'objectid_columns', 'helpers', 'database_helper'))
   database_gem_name = ObjectidColumns::Helpers::DatabaseHelper.maybe_database_gem_name
