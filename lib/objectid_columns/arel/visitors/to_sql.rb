@@ -39,6 +39,8 @@ ObjectId, and hence don't know how to transform this value properly.}
           value = manager.to_valid_value_for_column(column_name, o)
           quote(value, column)
         end
+
+        alias_method :visit_Moped_BSON_ObjectId, :visit_BSON_ObjectId
       end
     end
   end
