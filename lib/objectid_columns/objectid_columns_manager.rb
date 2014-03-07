@@ -85,6 +85,71 @@ module ObjectidColumns
       end
     end
 
+    # Given a model, returns the correct value for #id. This takes into account composite primary keys where some
+    # columns may be ObjectId columns and some may not.
+    def read_objectid_primary_key(model)
+      pks = Array(model.class.primary_key)
+      out = [ ]
+      pks.each do |pk_column|
+        out << if is_objectid_column?(pk_column)
+          read_objectid_column(model, pk_column)
+        else
+          model[pk_column]
+        end
+      end
+      out = out[0] if out.length == 1
+      out
+    end
+
+    # Given a model, stores a new value for #id. This takes into account composite primary keys where some
+    # columns may be ObjectId columns and some may not.
+    def write_objectid_primary_key(model, new_value)
+      pks = Array(model.class.primary_key)
+      if pks.length == 1
+        write_objectid_column(model, pks[0], new_value)
+      else
+        pks.each_with_index do |pk_column, index|
+          value = new_value[index]
+          if is_objectid_column?(pk_column)
+            write_objectid_column(model, pk_column, value)
+          else
+            model[pk_column] = value
+          end
+        end
+      end
+    end
+
+    # Implements .find or .find_by_id for classes that have a primary key that has at least one ObjectId column in it;
+    # this takes care of handling both normal primary keys and composite primary keys.
+    def find_or_find_by_id(*args)
+      primary_key = active_record_class.primary_key
+      pk_length = primary_key.kind_of?(Array) ? primary_key.length : 1
+
+      # If we just have a single primary key, we flatten any input, just because that's exactly what base
+      # ActiveRecord does...
+      if pk_length == 1
+        args = args.flatten
+        args = args.map { |x| to_valid_value_for_column(primary_key, x) if x }
+        yield(*args)
+      else
+        # composite_primary_keys, however, requires that you pass each key as a single, separate argument to .find or
+        # .find_by_id; we transform them here.
+        keys = args.map do |key|
+          new_key = [ ]
+          key.each_with_index do |key_component, index|
+            column = primary_key[index]
+            new_key << if is_objectid_column?(column)
+              to_valid_value_for_column(column, key_component) if key_component
+            else
+              key_component
+            end
+          end
+          new_key
+        end
+        yield(*keys)
+      end
+    end
+
     # Declares that this class is using an ObjectId as its primary key. Ordinarily, this requires no arguments;
     # however, if your primary key is not named +id+ and you have not yet told ActiveRecord this (using
     # <tt>self.primary_key = :foo</tt>), then you must pass the name of the primary-key column.
@@ -94,18 +159,28 @@ module ObjectidColumns
     # ObjectIds are safe to generate client-side, and very difficult to properly generate server-side in a relational
     # database. However, we will respect (and not overwrite) any primary key already assigned to the record before it's
     # saved, so if you want to assign your own ObjectId primary keys, you can.
+    #
+    # This method handles composite primary keys, as provided by the +composite_primary_keys+ gem, correctly.
     def has_objectid_primary_key(*primary_keys_that_are_objectid_columns)
+      # First, normalize our set of primary keys that are ObjectId columns...
       primary_keys_that_are_objectid_columns = primary_keys_that_are_objectid_columns.compact.map(&:to_s).uniq
+
+      # Now, see what all the primary keys are. If the user hasn't specified any primary keys on the class at all yet,
+      # but has told us what they are, then we need to tell ActiveRecord what they are.
       all_primary_keys = if activerecord_class_has_no_real_primary_key?
         set_primary_key_from!(primary_keys_that_are_objectid_columns)
         primary_keys_that_are_objectid_columns
       else
         Array(active_record_class.primary_key)
       end
+      # Normalize the set of all primary keys.
       all_primary_keys = all_primary_keys.compact.map(&:to_s).uniq
 
-      raise "Class #{active_record_class.name} has no primary key set, and you haven't supplied one to #has_objectid_primary_key" if all_primary_keys.empty?
+      # Let's make sure we have a primary key...
+      raise ArgumentError, "Class #{active_record_class.name} has no primary key set, and you haven't supplied one to #has_objectid_primary_key" if all_primary_keys.empty?
 
+      # If you didn't specify any ObjectId columns explicitly, use what we know about the class to figure out which
+      # ones you mean.
       if primary_keys_that_are_objectid_columns.empty?
         if all_primary_keys.length == 1
           primary_keys_that_are_objectid_columns = all_primary_keys
@@ -114,40 +189,22 @@ module ObjectidColumns
         end
       end
 
+      # Make sure we have at least one ObjectId primary key, if we're in this method.
+      raise "Class #{active_record_class.name} has no columns in its primary key that qualify as object IDs automatically; you must specify their names explicitly." if primary_keys_that_are_objectid_columns.empty?
+
+      # Make sure all the columns the user named actually exist as columns on the model.
       missing = primary_keys_that_are_objectid_columns.select { |c| ! active_record_class.columns_hash.has_key?(c) }
       raise "The following primary-key column(s) do not appear to actually exist on #{active_record_class.name}: #{missing.inspect}" unless missing.empty?
 
       # Declare our primary-key column as an ObjectId column.
       has_objectid_column *primary_keys_that_are_objectid_columns
 
+      # Override #id and #id= to do the right thing...
       dynamic_methods_module.define_method("id") do
-        pks = Array(self.class.primary_key)
-        out = [ ]
-        pks.each do |pk_column|
-          out << if self.class.objectid_columns_manager.is_objectid_column?(pk_column)
-            read_objectid_column(pk_column)
-          else
-            self[pk_column]
-          end
-        end
-        out = out[0] if out.length == 1
-        out
+        self.class.objectid_columns_manager.read_objectid_primary_key(self)
       end
-
       dynamic_methods_module.define_method("id=") do |new_value|
-        pks = Array(self.class.primary_key)
-        if pks.length == 1
-          write_objectid_column(pks[0], new_value)
-        else
-          pks.each_with_index do |pk_column, index|
-            value = new_value[index]
-            if self.class.objectid_columns_manager.is_objectid_column?(pk_column)
-              write_objectid_column(pk_column, value)
-            else
-              self[pk_column] = value
-            end
-          end
-        end
+        self.class.objectid_columns_manager.write_objectid_primary_key(self, new_value)
       end
 
       # Allow us to autogenerate the primary key, if needed, on save.
@@ -156,26 +213,7 @@ module ObjectidColumns
       # Override a couple of methods that, if you're using an ObjectId column as your primary key, need overriding. ;)
       [ :find, :find_by_id ].each do |class_method_name|
         @dynamic_methods_module.define_class_method(class_method_name) do |*args, &block|
-          pk_length = primary_key.kind_of?(Array) ? primary_key.length : 1
-          if pk_length == 1
-            args = args.flatten
-            args = args.map { |x| objectid_columns_manager.to_valid_value_for_column(primary_key, x) if x }
-            super(*args)
-          else
-            keys = args.map do |key|
-              new_key = [ ]
-              key.each_with_index do |key_component, index|
-                column = primary_key[index]
-                new_key << if objectid_columns_manager.is_objectid_column?(column)
-                  objectid_columns_manager.to_valid_value_for_column(column, key_component) if key_component
-                else
-                  key_component
-                end
-              end
-              new_key
-            end
-            super(*keys, &block)
-          end
+          objectid_columns_manager.find_or_find_by_id(*args) { |*new_args| super(*new_args, &block) }
         end
       end
     end
