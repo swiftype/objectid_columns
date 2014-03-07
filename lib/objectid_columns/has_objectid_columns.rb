@@ -25,7 +25,7 @@ module ObjectidColumns
     # Called as a +before_create+ hook, if (and only if) this class has declared +has_objectid_primary_key+ -- sets
     # the primary key to a newly-generated ObjectId, unless it has one already.
     def assign_objectid_primary_key
-      self.id ||= ObjectidColumns.new_objectid
+      self.class.objectid_columns_manager.assign_objectid_primary_key(self)
     end
 
     module ClassMethods

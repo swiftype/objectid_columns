@@ -48,6 +48,43 @@ module ObjectidColumns
       end
     end
 
+    # This method basically says: does our +active_record_class+ have a primary key defined, for real? There are two
+    # reasons this is anything more than (<tt>!! active_record_class.primary_key</tt>):
+    #
+    # * In earlier versions of ActiveRecord (like 3.0.x), this will return +id+ even if you haven't set it and there is
+    #   no column named +id+.
+    # * The +composite_primary_keys+ gem can make this an array instead.
+    def activerecord_class_has_no_real_primary_key?
+      (! active_record_class.primary_key) ||
+        (active_record_class.primary_key == [ ]) ||
+        ( ([ [ 'id' ], [ :id ] ].include?(Array(active_record_class.primary_key))) &&
+          (! active_record_class.columns_hash.has_key?('id')) &&
+          (! active_record_class.columns_hash.has_key?(:id)))
+    end
+
+    # If you haven't specified a primary key on your model (using <tt>self.primary_key=</tt>), and you call
+    # +has_objectid_primary_key+, we want to tell the ActiveRecord model that that's the new primary key. This takes
+    # care of that, and handles the fact that this may be a composite primary key, too.
+    def set_primary_key_from!(primary_keys)
+      if primary_keys.length > 1
+        active_record_class.primary_key = primary_keys.map(&:to_s)
+      elsif primary_keys.length == 1
+        active_record_class.primary_key = primary_keys[0].to_s
+      else
+        # nothing here; we handle this elsewhere
+      end
+    end
+
+    # Assigns a new ObjectId primary key to a brand-new model that's about to be created, if needed. This handles
+    # composite primary keys correctly.
+    def assign_objectid_primary_key(model)
+      Array(model.class.primary_key).each do |pk_column|
+        if is_objectid_column?(pk_column) && (! model[pk_column])
+          model.send("#{pk_column}=", ObjectidColumns.new_objectid)
+        end
+      end
+    end
+
     # Declares that this class is using an ObjectId as its primary key. Ordinarily, this requires no arguments;
     # however, if your primary key is not named +id+ and you have not yet told ActiveRecord this (using
     # <tt>self.primary_key = :foo</tt>), then you must pass the name of the primary-key column.
@@ -57,40 +94,60 @@ module ObjectidColumns
     # ObjectIds are safe to generate client-side, and very difficult to properly generate server-side in a relational
     # database. However, we will respect (and not overwrite) any primary key already assigned to the record before it's
     # saved, so if you want to assign your own ObjectId primary keys, you can.
-    def has_objectid_primary_key(primary_key_name = nil)
-      # The Symbol-vs.-String distinction is critical when dealing with old versions of ActiveRecord; for example, if
-      # you say <tt>self.primary_key = :foo</tt> (instead of <tt>self.primary_key = 'foo'</tt>) to older versions of
-      # ActiveRecord, you can end up with some seriously weird errors later (like models trying to save themselves with
-      # _both_ a +:foo+ and a +'foo'+ attribute -- ick!). Boo, AR.
-      primary_key_name = primary_key_name.to_s if primary_key_name
-      pk = active_record_class.primary_key
+    def has_objectid_primary_key(*primary_keys_that_are_objectid_columns)
+      primary_keys_that_are_objectid_columns = primary_keys_that_are_objectid_columns.compact.map(&:to_s).uniq
+      all_primary_keys = if activerecord_class_has_no_real_primary_key?
+        set_primary_key_from!(primary_keys_that_are_objectid_columns)
+        primary_keys_that_are_objectid_columns
+      else
+        Array(active_record_class.primary_key)
+      end
+      all_primary_keys = all_primary_keys.compact.map(&:to_s).uniq
 
-      # Make sure we know what the primary key is!
-      if (! pk) && (! primary_key_name)
-        raise ArgumentError, "Class #{active_record_class.name} has no primary key set, and you haven't supplied one to .has_objectid_primary_key. Either set one before this call (using self.primary_key = :foo), or supply one to this call (has_objectid_primary_key :foo) and we'll set it for you."
+      raise "Class #{active_record_class.name} has no primary key set, and you haven't supplied one to #has_objectid_primary_key" if all_primary_keys.empty?
+
+      if primary_keys_that_are_objectid_columns.empty?
+        if all_primary_keys.length == 1
+          primary_keys_that_are_objectid_columns = all_primary_keys
+        else
+          primary_keys_that_are_objectid_columns = autodetect_columns_from(all_primary_keys, true)
+        end
       end
 
-      pk = pk.to_s if pk
-
-      # Initially, this was a simple +||=+ statement. However, older versions of ActiveRecord will return the string or
-      # symbol +id+ for the primary key if you haven't set an explicit primary key, even if there is no such column on
-      # the underlying table. Again, ick.
-      if (! pk) || (primary_key_name && pk.to_s != primary_key_name.to_s)
-        active_record_class.primary_key = pk = primary_key_name
-      end
-
-      # In case someone is using composite_primary_keys (http://compositekeys.rubyforge.org/).
-      raise "You can't have an ObjectId primary key that's not a String or Symbol: #{pk.inspect}" unless pk.kind_of?(String) || pk.kind_of?(Symbol)
+      missing = primary_keys_that_are_objectid_columns.select { |c| ! active_record_class.columns_hash.has_key?(c) }
+      raise "The following primary-key column(s) do not appear to actually exist on #{active_record_class.name}: #{missing.inspect}" unless missing.empty?
 
       # Declare our primary-key column as an ObjectId column.
-      has_objectid_column pk
+      has_objectid_column *primary_keys_that_are_objectid_columns
 
-      # If it's not called just "id", we need to explicitly define an "id" method that correctly reads from and writes
-      # to the table.
-      unless pk.to_s == 'id'
-        p = pk
-        dynamic_methods_module.define_method("id") { read_objectid_column(p) }
-        dynamic_methods_module.define_method("id=") { |new_value| write_objectid_column(p, new_value) }
+      dynamic_methods_module.define_method("id") do
+        pks = Array(self.class.primary_key)
+        out = [ ]
+        pks.each do |pk_column|
+          out << if self.class.objectid_columns_manager.is_objectid_column?(pk_column)
+            read_objectid_column(pk_column)
+          else
+            self[pk_column]
+          end
+        end
+        out = out[0] if out.length == 1
+        out
+      end
+
+      dynamic_methods_module.define_method("id=") do |new_value|
+        pks = Array(self.class.primary_key)
+        if pks.length == 1
+          write_objectid_column(pks[0], new_value)
+        else
+          pks.each_with_index do |pk_column, index|
+            value = new_value[index]
+            if self.class.objectid_columns_manager.is_objectid_column?(pk_column)
+              write_objectid_column(pk_column, value)
+            else
+              self[pk_column] = value
+            end
+          end
+        end
       end
 
       # Allow us to autogenerate the primary key, if needed, on save.
@@ -99,16 +156,25 @@ module ObjectidColumns
       # Override a couple of methods that, if you're using an ObjectId column as your primary key, need overriding. ;)
       [ :find, :find_by_id ].each do |class_method_name|
         @dynamic_methods_module.define_class_method(class_method_name) do |*args, &block|
-          if args.length == 1 && args[0].kind_of?(String) || ObjectidColumns.is_valid_bson_object?(args[0]) || args[0].kind_of?(Array)
-            args[0] = if args[0].kind_of?(Array)
-              args[0].map { |x| objectid_columns_manager.to_valid_value_for_column(primary_key, x) if x }
-            else
-              objectid_columns_manager.to_valid_value_for_column(primary_key, args[0]) if args[0]
-            end
-
-            super(args[0], &block)
+          pk_length = primary_key.kind_of?(Array) ? primary_key.length : 1
+          if pk_length == 1
+            args = args.flatten
+            args = args.map { |x| objectid_columns_manager.to_valid_value_for_column(primary_key, x) if x }
+            super(*args)
           else
-            super(*args, &block)
+            keys = args.map do |key|
+              new_key = [ ]
+              key.each_with_index do |key_component, index|
+                column = primary_key[index]
+                new_key << if objectid_columns_manager.is_objectid_column?(column)
+                  objectid_columns_manager.to_valid_value_for_column(column, key_component) if key_component
+                else
+                  key_component
+                end
+              end
+              new_key
+            end
+            super(*keys, &block)
           end
         end
       end
@@ -124,7 +190,7 @@ module ObjectidColumns
       return unless active_record_class.table_exists?
 
       # Autodetect columns ending in +_oid+ if needed
-      columns = autodetect_columns if columns.length == 0
+      columns = autodetect_columns_from(active_record_class.columns_hash.keys) if columns.length == 0
 
       columns = columns.map { |c| c.to_s.strip.downcase.to_sym }
       columns.each do |column_name|
@@ -170,10 +236,11 @@ module ObjectidColumns
       column_name = column_name.to_s
       value = model[column_name]
       return value unless value # in case it's nil
+      return value if ObjectidColumns.is_valid_bson_object?(value) # we can get this when reading the 'id' pseudocolumn
 
       # If it's not nil, the database should always be giving us back a String...
       unless value.kind_of?(String)
-        raise "When trying to read the ObjectId column #{column_name.inspect} on #{inspect},  we got the following data from the database; we expected a String: #{value.inspect}"
+        raise "When trying to read the ObjectId column #{column_name.inspect} on #{active_record_class.name} ID=#{model.id.inspect}, we got the following data from the database; we expected a String: #{value.inspect}"
       end
 
       # ugh...ActiveRecord 3.1.x can return this in certain circumstances
@@ -307,14 +374,18 @@ module ObjectidColumns
 
     # If someone called +has_objectid_columns+ but didn't pass an argument, this method detects which columns we should
     # automatically turn into ObjectId columns -- which means any columns ending in +_oid+, except for the primary key.
-    def autodetect_columns
-      out = active_record_class.columns.select { |c| c.name =~ /_oid$/i }.map(&:name).map(&:to_s)
+    def autodetect_columns_from(column_names, allow_primary_key = false)
+      column_names = column_names.map(&:to_s)
+      out = column_names.select do |column_name|
+        column = active_record_class.columns_hash[column_name]
+        column && column.name =~ /_oid$/i
+      end
 
       # Make sure we never, ever automatically make the primary-key column an ObjectId column.
-      out -= [ active_record_class.primary_key ].compact.map(&:to_s)
+      out -= Array(active_record_class.primary_key).compact.map(&:to_s) unless allow_primary_key
 
       unless out.length > 0
-        raise ArgumentError, "You didn't pass in the names of any ObjectId columns, and we couldn't find any columns ending in _oid to pick up automatically (primary key is always excluded). Either name some columns explicitly, or remove the has_objectid_columns call."
+        raise ArgumentError, "You didn't pass in the names of any ObjectId columns, and we couldn't find any columns ending in _oid to pick up automatically (primary key is always excluded). Either name some columns explicitly, or remove the has_objectid_columns call. We found columns named: #{column_names.inspect}"
       end
 
       out
