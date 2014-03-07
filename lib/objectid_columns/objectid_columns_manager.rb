@@ -183,14 +183,17 @@ module ObjectidColumns
       # you get back all 16 anyway, with 0x00 bytes at the end. Converting this to an ObjectId will fail, so we make
       # sure we chop those bytes off. (Note that while String#strip will, in fact, remove these bytes too, it is not
       # safe: if the ObjectId itself ends in one or more 0x00 bytes, then these will get incorrectly removed.)
-      case objectid_column_type(column_name)
+      case type = objectid_column_type(column_name)
       when :binary then value = value[0..(BINARY_OBJECTID_LENGTH - 1)]
       when :string then value = value[0..(STRING_OBJECTID_LENGTH - 1)]
       else unknown_type(type)
       end
 
       # +lib/objectid_columns/extensions.rb+ adds this method to String.
-      value.to_bson_id
+      out = value.to_bson_id
+
+      out.set_objectid_preferred_conversion!(type)
+      out
     end
 
     # Called from ObjectidColumns::HasObjectidColumns#write_objectid_column -- given a model, a column name (which must

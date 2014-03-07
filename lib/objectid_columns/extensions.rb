@@ -5,6 +5,9 @@
 # * #to_binary, which returns a String containing a pure-binary (12-byte) representation of the ObjectId; and
 # * #to_bson_id, which simply returns +self+ -- this is so we can call this method on any object passed in where we're
 #   expecting an ObjectId, and, if you're already supplying an ObjectId object, it will just work.
+# * #set_objectid_preferred_conversion! and #objectid_preferred_conversion; these are used to support the gross hack
+#   mentioned in ObjectidColumns::Arel::Visitors for ActiveRecord/Arel 3.x. See the class comment there for more
+#   details.
 ObjectidColumns.available_objectid_columns_bson_classes.each do |klass|
   klass.class_eval do
     def to_binary
@@ -13,6 +16,15 @@ ObjectidColumns.available_objectid_columns_bson_classes.each do |klass|
 
     def to_bson_id
       self
+    end
+
+    def set_objectid_preferred_conversion!(conversion)
+      raise ArgumentError, "Invalid preferred conversion: #{conversion.inspect}" unless [ nil, :binary, :string ].include?(conversion)
+      @_objectid_columns_preferred_conversion = conversion
+    end
+
+    def objectid_preferred_conversion
+      @_objectid_columns_preferred_conversion
     end
   end
 end

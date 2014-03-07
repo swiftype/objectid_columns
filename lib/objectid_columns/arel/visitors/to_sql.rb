@@ -5,10 +5,49 @@ module ObjectidColumns
       # backbone of ActiveRecord's query language) uses to generate SQL. This teaches Arel what to do when it bumps
       # into an object of a BSON ID class -- _i.e._, how to convert it to a SQL literal.
       #
-      # Because once we're in the world of Arel we no longer have any access to the ActiveRecord model, we need to
-      # be able to fetch it by name; this is what ObjectidColumns::ObjectidColumnsManager.for_table is for.
+      # How this works depends on which version of ActiveRecord -- and therefore AREL -- you're using:
+      #
+      # * In Arel 4.x, the #visit... methods get called with two arguments. The first is the actual BSON ID that needs
+      #   to be converted; the second provides context. From the second parameter, we can get the table name and
+      #   column name. We use this to get a hold of the ObjectidColumnsManager via its class method .for_table, and,
+      #   from there, a converted, valid value for the column in question (whether hex or binary).
+      # * In Arel 3.x, unfortunately, we do not get passed any context information at all; we just get a BSON ID, and
+      #   are told "here, convert that to a SQL representation". The problem is that we don't know whether to convert
+      #   this to a string (hex) representation, or a pure-binary representation. So, instead, we do a gross hack:
+      #   when we retrieve an object-id value out of the database, we tag it with a "preferred" representation (which
+      #   is whatever its column is); then, when we need to convert such a value, we just use this preferred
+      #   representation. This isn't perfect, but nicely solves the by-far-most-common case of this, which is where
+      #   we're just calling #save or #save! on an ActiveRecord model that has an object-ID column as its primary key.
+      #
       module ToSql
-        def visit_BSON_ObjectId(o, a)
+        def visit_BSON_ObjectId(o, a = nil)
+          value = if a # i.e., ActiveRecord 4.x
+            bson_objectid_value_from_parameter(o, a)
+          elsif o.objectid_preferred_conversion == :binary
+            o.to_binary
+          elsif o.objectid_preferred_conversion == :string
+            o.to_s
+          else
+            raise %{ObjectidColumns: You seem to be using an ObjectId value in a context where we can't
+tell whether to convert it to a binary or string representation. This can arise in certain
+scenarios, particularly with ActiveRecord/Arel 3.x (as opposed to 4.x).
+
+The solution is to convert this value manually (call #to_binary or #to_s on it,
+for pure-binary or hex representation, respectively) before using it.
+
+If you really want to dig in deeper and potentially offer a fix for this issue,
+see objectid_columns/lib/objectid_columns/arel/visitors/to_sql.}
+          end
+
+          quote_args = [ value ]
+          quote_args << column_for(a) if a
+          quote(*quote_args)
+        end
+
+        alias_method :visit_Moped_BSON_ObjectId, :visit_BSON_ObjectId
+
+        private
+        def bson_objectid_value_from_parameter(o, a)
           column = column_for(a)
           column_name = column.name
 
@@ -36,11 +75,8 @@ we don't knwo whether this column should be treated as a binary or a hexadecimal
 ObjectId, and hence don't know how to transform this value properly.}
           end
 
-          value = manager.to_valid_value_for_column(column_name, o)
-          quote(value, column)
+          manager.to_valid_value_for_column(column_name, o)
         end
-
-        alias_method :visit_Moped_BSON_ObjectId, :visit_BSON_ObjectId
       end
     end
   end
