@@ -26,6 +26,26 @@ module ObjectidColumns
       # methods directly on the class, for a number of very good reasons -- see the class comment on
       # DynamicMethodsModule for more information.
       @dynamic_methods_module = ObjectidColumns::DynamicMethodsModule.new(active_record_class, :ObjectidColumnsDynamicMethods)
+
+      self.class.register_for_table(active_record_class.table_name, self)
+    end
+
+    class << self
+      # ObjectidColumns::Arel::Visitors::ToSql needs to be able to figure out whether an ObjectId column is of binary
+      # or text format, in order to properly transform/quote the value it has. However, by the time the code gets there,
+      # we no longer have access to the ActiveRecord model at all. So, instead, we need an entry point to be able to
+      # find the ObjectidColumnsManager for a table by name. That's .for_table, below; this is the method called at
+      # the end of the constructor of every ObjectidColumnsManager, registering the instance by table name.
+      def register_for_table(table_name, instance)
+        @_registered_instances ||= { }
+        @_registered_instances[table_name] = instance
+      end
+
+      # See above. Given a table name, this returns the ObjectidColumnsManager for it, or +nil+ if none has been
+      # defined for that table.
+      def for_table(table_name)
+        @_registered_instances[table_name]
+      end
     end
 
     # Declares that this class is using an ObjectId as its primary key. Ordinarily, this requires no arguments;
@@ -250,6 +270,11 @@ module ObjectidColumns
       else
         [ query_key, query_value ]
       end
+    end
+
+    # Given the name of a column, tell whether or not it is an ObjectId column.
+    def is_objectid_column?(column_name)
+      oid_columns.has_key?(column_name.to_sym)
     end
 
     private

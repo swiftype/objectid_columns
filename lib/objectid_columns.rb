@@ -1,6 +1,7 @@
 require "objectid_columns/version"
 require "objectid_columns/active_record/base"
 require "objectid_columns/active_record/relation"
+require "objectid_columns/arel/visitors/to_sql"
 require "active_record"
 
 # This is the root module for ObjectidColumns. It contains largely just configuration and integration information;
@@ -116,6 +117,11 @@ end
 # This adds our patch to +#where+, so that queries will work properly (assuming you use Hash-style syntax).
 ::ActiveRecord::Relation.class_eval do
   include ::ObjectidColumns::ActiveRecord::Relation
+end
+
+# require 'arel/visitors/to_sql'
+::Arel::Visitors::ToSql.class_eval do
+  include ::ObjectidColumns::Arel::Visitors::ToSql
 end
 
 require "objectid_columns/extensions"

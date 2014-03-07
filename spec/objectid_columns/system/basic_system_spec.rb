@@ -174,6 +174,27 @@ describe "ObjectidColumns basic operations" do
               expect(@model_class.send(find_by_id_method, new_oid)).to be_nil
             end
 
+            it "should let you load and save objects properly" do
+              r1 = @model_class.new
+              r1.name = 'row 1'
+              r1.id = new_oid
+              r1.save!
+
+              r1_again = @model_class.find(@tc.from_string(r1.id.to_s))
+              expect(r1_again.name).to eq('row 1')
+              r1_again.id = @tc.from_string(r1.id.to_s)
+              r1_again.name = 'row 1 again'
+              begin
+                r1_again.save!
+              rescue => e
+                $stderr.puts "#{e.class.name} #{e.message}\n#{e.backtrace.join("\n")}"
+                raise
+              end
+
+              r1_yet_again = @model_class.find(r1_again.id)
+              expect(r1_yet_again.name).to eq('row 1 again')
+            end
+
             it "should not pick up primary-key columns automatically, even if they're named _oid" do
               migrate do
                 drop_table :objectidcols_spec_pk_auto rescue nil
