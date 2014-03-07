@@ -1,3 +1,5 @@
+require 'active_support'
+
 module ObjectidColumns
   module Arel
     module Visitors
@@ -20,43 +22,76 @@ module ObjectidColumns
       #   we're just calling #save or #save! on an ActiveRecord model that has an object-ID column as its primary key.
       #
       module ToSql
-        def visit_BSON_ObjectId(o, a = nil)
-          value = if a # i.e., ActiveRecord 4.x
-            bson_objectid_value_from_parameter(o, a)
-          elsif o.objectid_preferred_conversion == :binary
-            o.to_binary
-          elsif o.objectid_preferred_conversion == :string
-            o.to_s
-          else
-            raise %{ObjectidColumns: You seem to be using an ObjectId value in a context where we can't
-tell whether to convert it to a binary or string representation. This can arise in certain
-scenarios, particularly with ActiveRecord/Arel 3.x (as opposed to 4.x).
+        extend ActiveSupport::Concern
 
-The solution is to convert this value manually (call #to_binary or #to_s on it,
-for pure-binary or hex representation, respectively) before using it.
-
-If you really want to dig in deeper and potentially offer a fix for this issue,
-see objectid_columns/lib/objectid_columns/arel/visitors/to_sql.}
+        require 'arel'
+        if ::Arel::VERSION =~ /^[23]\./
+          def visit_Arel_Attributes_Attribute_with_objectid_columns(o, *args)
+            out = visit_Arel_Attributes_Attribute_without_objectid_columns(o, *args)
+            self.last_relation = o.relation
+            out
           end
 
-          quote_args = [ value ]
-          quote_args << column_for(a) if a
-          quote(*quote_args)
+          included do
+            alias_method_chain :visit_Arel_Attributes_Attribute, :objectid_columns
+
+
+            alias :visit_Arel_Attributes_Integer :visit_Arel_Attributes_Attribute_with_objectid_columns
+            alias :visit_Arel_Attributes_Float :visit_Arel_Attributes_Attribute_with_objectid_columns
+            alias :visit_Arel_Attributes_Decimal :visit_Arel_Attributes_Attribute_with_objectid_columns
+            alias :visit_Arel_Attributes_String :visit_Arel_Attributes_Attribute_with_objectid_columns
+            alias :visit_Arel_Attributes_Time :visit_Arel_Attributes_Attribute_with_objectid_columns
+            alias :visit_Arel_Attributes_Boolean :visit_Arel_Attributes_Attribute_with_objectid_columns
+
+            attr_accessor :last_relation
+          end
+        end
+
+        def visit_BSON_ObjectId(o, a = nil)
+          column = if a then column_for(a) else last_column end
+          relation = if a then a.relation else last_relation end
+
+          raise "no column?!?" unless column
+          raise "no relation?!?" unless relation
+
+          quote(bson_objectid_value_from_parameter(o, column, relation), column)
+
+#           $stderr.puts "last_column: #{last_column.inspect}"
+#           $stderr.puts "last_relation: #{last_relation.inspect}"
+
+#           value = if a # i.e., ActiveRecord 4.x
+#             bson_objectid_value_from_parameter(o, a)
+#           elsif o.objectid_preferred_conversion == :binary
+#             o.to_binary
+#           elsif o.objectid_preferred_conversion == :string
+#             o.to_s
+#           else
+#             raise %{ObjectidColumns: You seem to be using an ObjectId value in a context where we can't
+# tell whether to convert it to a binary or string representation. This can arise in certain
+# scenarios, particularly with ActiveRecord/Arel 3.x (as opposed to 4.x).
+
+# The solution is to convert this value manually (call #to_binary or #to_s on it,
+# for pure-binary or hex representation, respectively) before using it.
+
+# If you really want to dig in deeper and potentially offer a fix for this issue,
+# see objectid_columns/lib/objectid_columns/arel/visitors/to_sql.}
+#           end
+
+#           quote(value, column)
         end
 
         alias_method :visit_Moped_BSON_ObjectId, :visit_BSON_ObjectId
 
         private
-        def bson_objectid_value_from_parameter(o, a)
-          column = column_for(a)
+        def bson_objectid_value_from_parameter(o, column, relation)
           column_name = column.name
 
-          manager = ObjectidColumns::ObjectidColumnsManager.for_table(a.relation.name)
+          manager = ObjectidColumns::ObjectidColumnsManager.for_table(relation.name)
           unless manager
             raise %{ObjectidColumns: You're trying to evaluate a SQL statement (in Arel, probably via ActiveRecord)
 that contains a BSON ObjectId value -- you're trying to use the value '#{o}'
 (of class #{o.class.name}) with column #{column_name.inspect} of table
-#{a.relation.name.inspect}. However, we can't find any record of any ObjectId
+#{relation.name.inspect}. However, we can't find any record of any ObjectId
 columns being declared for that table anywhere.
 
 As a result, we don't know whether this column should be treated as a binary or
@@ -67,7 +102,7 @@ a hexadecimal ObjectId, and hence don't know how to transform this value properl
             raise %{ObjectidColumns: You're trying to evaluate a SQL statement (in Arel, probably via ActiveRecord)
 that contains a BSON ObjectId value -- you're trying to use the value '#{o}'
 (of class #{o.class.name}) with column #{column_name.inspect} of table
-#{a.relation.name.inspect}.
+#{relation.name.inspect}.
 
 While we can find a record of some ObjectId columns being declared for
 that table, they don't appear to include #{column_name.inspect}. As such,
