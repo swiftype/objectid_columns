@@ -190,10 +190,7 @@ module ObjectidColumns
       end
 
       # +lib/objectid_columns/extensions.rb+ adds this method to String.
-      out = value.to_bson_id
-
-      out.set_objectid_preferred_conversion!(type)
-      out
+      value.to_bson_id
     end
 
     # Called from ObjectidColumns::HasObjectidColumns#write_objectid_column -- given a model, a column name (which must
