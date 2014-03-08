@@ -94,7 +94,13 @@ describe "ObjectidColumns basic operations" do
               end
             end
 
-            define_model_class(:SpectablePkCmp, :objectidcols_spec_pk_cmp) { self.primary_keys = [ 'some_oid', 'more_pk' ] }
+            define_model_class(:SpectablePkCmp, :objectidcols_spec_pk_cmp) do
+              if respond_to?(:primary_keys=)
+                self.primary_keys = [ 'some_oid', 'more_pk' ]
+              else
+                self.set_primary_keys('some_oid', 'more_pk')
+              end
+            end
             ::SpectablePkCmp.class_eval { has_objectid_primary_key }
             @model_class = ::SpectablePkCmp
           end
@@ -147,7 +153,13 @@ describe "ObjectidColumns basic operations" do
               end
             end
 
-            define_model_class(:SpectablePkCmp2, :objectidcols_spec_pk_cmp_2) { self.primary_keys = [ 'one', 'two', 'three' ] }
+            define_model_class(:SpectablePkCmp2, :objectidcols_spec_pk_cmp_2) do
+              if respond_to?(:primary_keys=)
+                self.primary_keys = [ 'one', 'two', 'three' ]
+              else
+                self.set_primary_keys('one', 'two', 'three')
+              end
+            end
             ::SpectablePkCmp2.class_eval { has_objectid_primary_key :one, :three }
             @model_class = ::SpectablePkCmp2
           end

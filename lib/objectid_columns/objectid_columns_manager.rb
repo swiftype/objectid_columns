@@ -79,7 +79,7 @@ module ObjectidColumns
     # composite primary keys correctly.
     def assign_objectid_primary_key(model)
       Array(model.class.primary_key).each do |pk_column|
-        if is_objectid_column?(pk_column) && (! model[pk_column])
+        if is_objectid_column?(pk_column) && model[pk_column].blank?
           model.send("#{pk_column}=", ObjectidColumns.new_objectid)
         end
       end
@@ -194,7 +194,7 @@ module ObjectidColumns
 
       # Make sure all the columns the user named actually exist as columns on the model.
       missing = primary_keys_that_are_objectid_columns.select { |c| ! active_record_class.columns_hash.has_key?(c) }
-      raise "The following primary-key column(s) do not appear to actually exist on #{active_record_class.name}: #{missing.inspect}" unless missing.empty?
+      raise "The following primary-key column(s) do not appear to actually exist on #{active_record_class.name}: #{missing.inspect}; we have these columns: #{active_record_class.columns_hash.keys.inspect}" unless missing.empty?
 
       # Declare our primary-key column as an ObjectId column.
       has_objectid_column *primary_keys_that_are_objectid_columns
