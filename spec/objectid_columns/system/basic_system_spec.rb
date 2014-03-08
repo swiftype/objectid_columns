@@ -1,6 +1,15 @@
 require 'objectid_columns'
 require 'objectid_columns/helpers/system_helpers'
-require 'composite_primary_keys'
+
+# See the gemspec for more details -- basically, we don't always load composite_primary_keys, because it's pretty
+# broken and doesn't work with a fair number of combinations of Ruby versions, databases, and so on. So if it's not
+# available, we skip those tests.
+begin
+  require 'composite_primary_keys'
+  $composite_primary_keys_available = true
+rescue LoadError => le
+  # nothing here
+end
 
 unless defined?(VALID_OBJECTID_CLASSES)
   VALID_OBJECTID_CLASSES = [ BSON::ObjectId ]
@@ -82,97 +91,111 @@ describe "ObjectidColumns basic operations" do
         expect { ::SpectableNonexistent.class_eval { has_objectid_column :foo } }.to_not raise_error
       end
 
-      describe "composite primary key support" do
-        context "with an implicit PK" do
-          before :each do
-            migrate do
-              drop_table :objectidcols_spec_pk_cmp rescue nil
-              create_table :objectidcols_spec_pk_cmp, :id => false do |t|
-                t.binary :some_oid, :null => false
-                t.string :more_pk, :null => false
-                t.string :value
+      if $composite_primary_keys_available
+        describe "composite primary key support" do
+          context "with an implicit PK" do
+            before :each do
+              migrate do
+                drop_table :objectidcols_spec_pk_cmp rescue nil
+                create_table :objectidcols_spec_pk_cmp, :id => false do |t|
+                  t.binary :some_oid, :null => false
+                  t.string :more_pk, :null => false
+                  t.string :value
+                end
               end
+
+              define_model_class(:SpectablePkCmp, :objectidcols_spec_pk_cmp) do
+                if respond_to?(:primary_keys=)
+                  self.primary_keys = [ 'some_oid', 'more_pk' ]
+                else
+                  self.set_primary_keys('some_oid', 'more_pk')
+                end
+              end
+              ::SpectablePkCmp.class_eval { has_objectid_primary_key }
+              @model_class = ::SpectablePkCmp
             end
 
-            define_model_class(:SpectablePkCmp, :objectidcols_spec_pk_cmp) do
-              if respond_to?(:primary_keys=)
-                self.primary_keys = [ 'some_oid', 'more_pk' ]
-              else
-                self.set_primary_keys('some_oid', 'more_pk')
-              end
-            end
-            ::SpectablePkCmp.class_eval { has_objectid_primary_key }
-            @model_class = ::SpectablePkCmp
-          end
+            it "should allow using a composite primary key in individual parts" do
+              pending "disabled" unless $composite_primary_keys_available
 
-          it "should allow using a composite primary key in individual parts" do
-            instance = @model_class.new
-            instance.some_oid = new_oid
-            instance.more_pk = "foo"
-            instance.value = "foo value"
-            instance.save!
+              instance = @model_class.new
+              instance.some_oid = new_oid
+              instance.more_pk = "foo"
+              instance.value = "foo value"
+              instance.save!
 
-            instance_again = @model_class.find([ instance.some_oid, instance.more_pk ])
-            expect(instance_again.value).to eq(instance.value)
-            expect(instance_again.some_oid).to eq(instance.some_oid)
-            expect(instance_again.more_pk).to eq(instance.more_pk)
-          end
-
-          it "should allow using a composite primary key as a whole" do
-            oid = new_oid
-            instance = @model_class.new
-            instance.id = [ oid, "foo" ]
-            instance.value = "foo value"
-            instance.save!
-
-            expect(instance.some_oid).to be_an_objectid_object_matching(oid)
-            expect(instance.more_pk).to eq("foo")
-            expect(instance.value).to eq("foo value")
-
-            instance_again = @model_class.find(instance.id)
-            expect(instance_again.id).to eq(instance.id)
-            expect(instance_again.some_oid).to be_an_objectid_object_matching(oid)
-            expect(instance_again.more_pk).to eq("foo")
-            expect(instance_again.value).to eq("foo value")
-            expect(instance_again.id).to be_kind_of(Array)
-            expect(instance_again.id.length).to eq(2)
-            expect(instance_again.id[0]).to be_an_objectid_object_matching(oid)
-            expect(instance_again.id[1]).to eq("foo")
-          end
-        end
-
-        context "with an explicit PK" do
-          before :each do
-            migrate do
-              drop_table :objectidcols_spec_pk_cmp_2 rescue nil
-              create_table :objectidcols_spec_pk_cmp_2, :id => false do |t|
-                t.binary :one, :null => false
-                t.string :two, :null => false
-                t.string :three, :null => false
-                t.string :value
-              end
+              instance_again = @model_class.find([ instance.some_oid, instance.more_pk ])
+              expect(instance_again.value).to eq(instance.value)
+              expect(instance_again.some_oid).to eq(instance.some_oid)
+              expect(instance_again.more_pk).to eq(instance.more_pk)
             end
 
-            define_model_class(:SpectablePkCmp2, :objectidcols_spec_pk_cmp_2) do
-              if respond_to?(:primary_keys=)
-                self.primary_keys = [ 'one', 'two', 'three' ]
-              else
-                self.set_primary_keys('one', 'two', 'three')
-              end
+            it "should allow using a composite primary key as a whole" do
+              pending "disabled" unless $composite_primary_keys_available
+
+              oid = new_oid
+              instance = @model_class.new
+              instance.id = [ oid, "foo" ]
+              instance.value = "foo value"
+              instance.save!
+
+              expect(instance.some_oid).to be_an_objectid_object_matching(oid)
+              expect(instance.more_pk).to eq("foo")
+              expect(instance.value).to eq("foo value")
+
+              instance_again = @model_class.find(instance.id)
+              expect(instance_again.id).to eq(instance.id)
+              expect(instance_again.some_oid).to be_an_objectid_object_matching(oid)
+              expect(instance_again.more_pk).to eq("foo")
+              expect(instance_again.value).to eq("foo value")
+              expect(instance_again.id).to be_kind_of(Array)
+              expect(instance_again.id.length).to eq(2)
+              expect(instance_again.id[0]).to be_an_objectid_object_matching(oid)
+              expect(instance_again.id[1]).to eq("foo")
             end
-            ::SpectablePkCmp2.class_eval { has_objectid_primary_key :one, :three }
-            @model_class = ::SpectablePkCmp2
           end
 
-          it "should allow using a composite primary key that's partially ObjectId and partially not" do
-            instance = @model_class.new
-            oid_1 = new_oid
-            oid_2 = new_oid
-            instance.two = "foo"
-            instance.value = "foo_value"
-            instance.save!
+          context "with an explicit PK" do
+            before :each do
+              migrate do
+                drop_table :objectidcols_spec_pk_cmp_2 rescue nil
+                create_table :objectidcols_spec_pk_cmp_2, :id => false do |t|
+                  t.binary :one, :null => false
+                  t.string :two, :null => false
+                  t.string :three, :null => false
+                  t.string :value
+                end
+              end
 
-            expect(instance.id).to be_kind_of(Array)
+              define_model_class(:SpectablePkCmp2, :objectidcols_spec_pk_cmp_2) do
+                if respond_to?(:primary_keys=)
+                  self.primary_keys = [ 'one', 'two', 'three' ]
+                else
+                  self.set_primary_keys('one', 'two', 'three')
+                end
+              end
+              ::SpectablePkCmp2.class_eval { has_objectid_primary_key :one, :three }
+              @model_class = ::SpectablePkCmp2
+            end
+
+            it "should allow using a composite primary key that's partially ObjectId and partially not" do
+              instance = @model_class.new
+              instance.two = "foo"
+              instance.value = "foo_value"
+              instance.save!
+
+              expect(instance.id).to be_kind_of(Array)
+              expect(instance.id[0]).to be_an_objectid_object
+              expect(instance.id[1]).to eq("foo")
+              expect(instance.id[2]).to be_an_objectid_object
+
+              id = instance.id
+              instance_again = @model_class.find(id)
+              expect(instance_again.id).to eq(id)
+              expect(instance_again.id[0]).to be_an_objectid_object_matching(id[0])
+              expect(instance_again.id[1]).to eq("foo")
+              expect(instance_again.id[2]).to be_an_objectid_object_matching(id[2])
+            end
           end
         end
       end
@@ -280,12 +303,7 @@ describe "ObjectidColumns basic operations" do
               expect(r1_again.name).to eq('row 1')
               r1_again.id = @tc.from_string(r1.id.to_s)
               r1_again.name = 'row 1 again'
-              begin
-                r1_again.save!
-              rescue => e
-                $stderr.puts "#{e.class.name} #{e.message}\n#{e.backtrace.join("\n")}"
-                raise
-              end
+              r1_again.save!
 
               r1_yet_again = @model_class.find(r1_again.id)
               expect(r1_yet_again.name).to eq('row 1 again')

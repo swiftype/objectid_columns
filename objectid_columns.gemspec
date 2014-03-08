@@ -38,8 +38,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "moped", "~> 1.5" unless RUBY_VERSION =~ /^1\.8\./
   spec.add_development_dependency "bson", "~> 1.9"
 
-  spec.add_development_dependency "composite_primary_keys"
-
   require File.expand_path(File.join(File.dirname(__FILE__), 'spec', 'objectid_columns', 'helpers', 'database_helper'))
   database_gem_name = ObjectidColumns::Helpers::DatabaseHelper.maybe_database_gem_name
 
@@ -49,5 +47,25 @@ Gem::Specification.new do |spec|
     spec.add_development_dependency('mysql2', '~> 0.2.0')
   else
     spec.add_development_dependency(database_gem_name)
+  end
+
+  # Double ugh. Basically, composite_primary_keys -- as useful as it is! -- is also incredibly incompatible with so
+  # much stuff:
+  #
+  # * Under Ruby 1.9+ with Postgres, it causes binary strings sent to or from the database to get truncated
+  #   at the first null byte (!), which completely breaks binary-column support;
+  # * Under JRuby with ActiveRecord 3.0, it's completely broken;
+  # * Under JRuby with ActiveRecord 3.1 and PostgreSQL, it's also broken.
+  #
+  # In these cases, we simply don't load or test against composite_primary_keys; our code is good, but the interactions
+  # between CPK and the rest of the system make it impossible to run those tests. There is corresponding code in our
+  # +basic_system_spec+ to exclude those combinations.
+  cpk_allowed = true
+  cpk_allowed = false if database_gem_name =~ /(pg|postgres)/i && RUBY_VERSION =~ /^(1\.9)|(2\.)/ && ar_version && ar_version =~ /^4\.0\./
+  cpk_allowed = false if defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'jruby') && ar_version && ar_version =~ /^3\.0\./
+  cpk_allowed = false if defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'jruby') && ar_version && ar_version =~ /^3\.1\./ && database_gem_name =~ /(pg|postgres)/i
+
+  if cpk_allowed
+    spec.add_development_dependency "composite_primary_keys"
   end
 end
