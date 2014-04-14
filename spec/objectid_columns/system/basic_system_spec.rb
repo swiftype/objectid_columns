@@ -461,6 +461,23 @@ describe "ObjectidColumns basic operations" do
           expect(::Spectable.where(:perfect_s_oid => @oid2.to_binary).to_a.map(&:id)).to eq([ r2.id ])
           expect(::Spectable.where(:perfect_s_oid => [ @oid1, @oid2 ].map(&:to_binary)).to_a.map(&:id).sort).to eq([ r1.id, r2.id ].sort)
         end
+
+        it "should give a good exception if you try to pass an ObjectID for a column that isn't an official ObjectID column" do
+          oid = new_oid
+          expect { ::Spectable.where(:perfect_b_oid => oid).to_a }.to raise_error(/ObjectidColumns:.*perfect_b_oid/mi)
+        end
+
+        it "should not blow up (and instead let ActiveRecord blow up) if you try to pass an ObjectID for a column that isn't a column at all" do
+          oid = new_oid
+          expect { ::Spectable.where(:something => oid).to_a }.to raise_error(/something/mi)
+        end
+
+        it "should not blow up (and instead let ActiveRecord just find no records, or blow up) if you try to pass an ObjectID for a column on a table that isn't using this gem at all" do
+          define_model_class(:SpectableNondeclared, 'objectidcols_spec_table') { }
+          expect(::SpectableNondeclared.where(:perfect_s_oid => new_oid).to_a).to eq([ ])
+
+          expect { ::SpectableNondeclared.where(:something => new_oid).to_a }.to raise_error(/something/i)
+        end
       end
 
       it "should allow using any column that's long enough, including binary or string columns" do

@@ -45,8 +45,7 @@ module ObjectidColumns
           column = if a then column_for(a) else last_column end
           relation = if a then a.relation else last_relation end
 
-          raise "no column?!?" unless column
-          raise "no relation?!?" unless relation
+          return quote(o.to_s) unless column && relation
 
           quote(bson_objectid_value_from_parameter(o, column, relation), column)
         end
@@ -77,7 +76,7 @@ that contains a BSON ObjectId value -- you're trying to use the value '#{o}'
 
 While we can find a record of some ObjectId columns being declared for
 that table, they don't appear to include #{column_name.inspect}. As such,
-we don't knwo whether this column should be treated as a binary or a hexadecimal
+we don't know whether this column should be treated as a binary or a hexadecimal
 ObjectId, and hence don't know how to transform this value properly.}
           end
 
