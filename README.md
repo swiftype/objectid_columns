@@ -26,9 +26,10 @@ want to allow you to use either one. It will accept either one when assigning Ob
 whichever one you have loaded, (currently) preferring `BSON::ObjectId` if you have both.
 
 ObjectidColumns supports Ruby 1.8.7, 1.9.3, 2.0.0, and 2.1.0, plus JRuby 1.7.9; it supports ActiveRecord 3.0.20,
-3.1.12, 3.2.16, and 4.0.2. It supports SQLite 3.x, MySQL 5.x, and PostgreSQL 8.x. (These are just the versions it's
-tested against; while it will not work with ActiveRecord 2.x, it is otherwise highly unlikely to be sensitive to
-exact ActiveRecord or Ruby versions, or type of RDBMS, and generally should work with most combinations.)
+3.1.12, 3.2.17, 4.0.4, and 4.1.0. It supports SQLite 3.x, MySQL 5.x, and PostgreSQL 8.x. (These are just the
+versions it's tested against; while it will not work with ActiveRecord 2.x, it is otherwise highly unlikely to
+be sensitive to exact ActiveRecord or Ruby versions, or type of RDBMS, and generally should work with most
+combinations.)
 
 *Note*: If you use SQLite3 with ActiveRecord 3.1.x on MRI (_i.e._, not JRuby), or SQLite3 with ActiveRecord 3.2.x on
 MRI 1.8.7, there is a bug in the SQLite3-ActiveRecord integration that causes ObjectId primary keys to not work. (They
