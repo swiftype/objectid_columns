@@ -34,7 +34,8 @@ String.class_eval do
     elsif length == 12 && ((! respond_to?(:encoding)) || (encoding == Encoding::BINARY)) # :respond_to? is for Ruby 1.8.7 support
       ObjectidColumns.construct_objectid(unpack("H*").first)
     else
-      raise ArgumentError, "#{inspect} does not seem to be a valid BSON ID; it is in neither the valid hex (exactly 24 hex characters, any encoding) nor the valid binary (12 characters, binary/ASCII-8BIT encoding) form"
+      encoding_string = respond_to?(:encoding) ? ", in encoding #{encoding.inspect}" : ""
+      raise ArgumentError, "#{inspect} does not seem to be a valid BSON ID; it is in neither the valid hex (exactly 24 hex characters, any encoding) nor the valid binary (12 characters, binary/ASCII-8BIT encoding) form. It is #{length} characters long#{encoding_string}"
     end
   end
 end
