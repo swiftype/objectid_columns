@@ -91,6 +91,12 @@ describe "ObjectidColumns basic operations" do
         expect { ::SpectableNonexistent.class_eval { has_objectid_column :foo } }.to_not raise_error
       end
 
+      it "should not fail if declared as a primary key and the table doesn't exist" do
+        define_model_class(:SpectableNonexistent, 'objectidcols_spec_table_nonexistent') { }
+        expect { ::SpectableNonexistent.class_eval { has_objectid_primary_key } }.to_not raise_error
+        expect { ::SpectableNonexistent.class_eval { has_objectid_primary_key :foo } }.to_not raise_error
+      end
+
       if $composite_primary_keys_available
         describe "composite primary key support" do
           context "with an implicit PK" do

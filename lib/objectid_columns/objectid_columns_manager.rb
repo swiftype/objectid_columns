@@ -162,6 +162,8 @@ module ObjectidColumns
     #
     # This method handles composite primary keys, as provided by the +composite_primary_keys+ gem, correctly.
     def has_objectid_primary_key(*primary_keys_that_are_objectid_columns)
+      return unless active_record_class.table_exists?
+
       # First, normalize our set of primary keys that are ObjectId columns...
       primary_keys_that_are_objectid_columns = primary_keys_that_are_objectid_columns.compact.map(&:to_s).uniq
 

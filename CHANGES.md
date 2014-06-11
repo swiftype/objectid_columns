@@ -1,5 +1,9 @@
 # Change History for ObjectidColumns
 
+### Version 1.0.3: June 11, 2014
+
+* Fixed an issue where, if you tried to declare `has_objectid_primary_key` on a table that didn't exist (usually meaning it just hadn't been migrated into existence yet), you'd get an error. Now, we ignore this declaration.
+
 ### Version 1.0.2: April 14, 2014
 
 * Fixed an issue where, if you tried to pass an ObjectID instance in a `where` clause for a column that didn't exist or wasn't on a table that declared any ObjectID columns, you could get an error from deep down in `ObjectidColumns`. (Now, you'll still get an error, but it will be the ActiveRecord error you expect, instead.)
