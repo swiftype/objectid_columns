@@ -44,14 +44,37 @@ module ObjectidColumns
 
       # Unfortunately, there appears to be no way to "un-include" a Module in Ruby -- so we have no way of replacing
       # an existing DynamicMethodsModule on the target class, which is what we'd really like to do in this situation.
-      if @target_class.const_defined?(@name)
-        existing = @target_class.const_get(@name)
 
-        if existing && existing != self
-          raise NameError, %{You tried to define a #{self.class.name} named #{name.inspect} on class #{target_class.name},
-but that class already has a constant named #{name.inspect}: #{existing.inspect}}
+      # Sigh. From the docs for Method#arity:
+      #
+      # "For Ruby methods that take a variable number of arguments, returns -n-1, where n is the number of required
+      # arguments. For methods written in C, returns -1 if the call takes a variable number of arguments."
+      #
+      # It turns out that .const_defined? is written in C, which means it returns -1 if it takes a variable number of
+      # arguments. So we can't check for arity.abs >= 2 here, but rather must look for <= -1...
+      if @target_class.method(:const_defined?).arity <= -1
+        if @target_class.const_defined?(@name, false)
+          existing = @target_class.const_get(@name, false)
+
+          if existing && existing != self
+            raise NameError, %{You tried to define a #{self.class.name} named #{name.inspect} on class #{target_class.name},
+  but that class already has a constant named #{name.inspect}: #{existing.inspect}}
+          end
+        end
+      else
+        # So...in Ruby 1.8.7, .const_defined? and .const_get don't accept the second parameter, which tells you whether
+        # to search superclass constants as well. But, amusingly, we're not only not stuck, this is fine: in Ruby
+        # 1.8.7, constant lookup doesn't search superclasses, either -- so we're OK.
+        if @target_class.const_defined?(@name)
+          existing = @target_class.const_get(@name)
+
+          if existing && existing != self
+            raise NameError, %{You tried to define a #{self.class.name} named #{name.inspect} on class #{target_class.name},
+  but that class already has a constant named #{name.inspect}: #{existing.inspect}}
+          end
         end
       end
+
 
       @class_methods_module = Module.new
       (class << @class_methods_module; self; end).send(:public, :private)

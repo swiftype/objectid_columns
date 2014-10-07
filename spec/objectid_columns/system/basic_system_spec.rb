@@ -71,6 +71,50 @@ describe "ObjectidColumns basic operations" do
         @tc.new
       end
 
+      context "with an STI table and model" do
+        before :each do
+          migrate do
+            drop_table :objectidcols_spec_table_sti rescue nil
+            create_table :objectidcols_spec_table_sti do |t|
+              t.string :type
+              t.column :some_oid, 'VARCHAR(24)'
+            end
+          end
+        end
+
+        after :each do
+          migrate do
+            drop_table :objectidcols_spec_table_sti rescue nil
+          end
+        end
+
+        let(:parent_model_class) { define_model_class(:SpectableStiParent, 'objectidcols_spec_table_sti') { has_objectid_columns } }
+        let(:child_model_class) { define_model_class(:SpectableStiChild, 'objectidcols_spec_table_sti', :superclass => parent_model_class) { has_objectid_columns } }
+
+        it "should work from both the parent and child class" do
+          id_1 = new_oid
+          id_2 = new_oid
+
+          parent_instance = parent_model_class.new(:some_oid => id_1)
+          parent_instance.save!
+
+          child_instance = child_model_class.new(:some_oid => id_2)
+          child_instance.save!
+
+          all_models = parent_model_class.all.to_a
+          expect(all_models.length).to eq(2)
+          parent_instance_again = all_models.detect { |m| m.id == parent_instance.id }
+          child_instance_again = all_models.detect { |m| m.id == child_instance.id }
+
+          expect(parent_instance_again.some_oid).to be_an_objectid_object_matching(id_1)
+          expect(child_instance_again.some_oid).to be_an_objectid_object_matching(id_2)
+
+          child_models = child_model_class.all.to_a
+          expect(child_models.length).to eq(1)
+          expect(child_models[0].some_oid).to be_an_objectid_object_matching(id_2)
+        end
+      end
+
       it "should not allow defining a column that's too short" do
         if ObjectidColumns::Helpers::SystemHelpers.supports_length_limits_on_binary_columns?
           expect { ::Spectable.class_eval { has_objectid_column :too_short_b } }.to raise_error(ArgumentError)

@@ -15,12 +15,14 @@ module ObjectidColumns
         end
       end
 
-      def define_model_class(name, table_name, &block)
-        model_class = Class.new(::ActiveRecord::Base)
+      def define_model_class(name, table_name, options = { }, &block)
+        superclass = options[:superclass] || ::ActiveRecord::Base
+        model_class = Class.new(superclass)
         ::Object.send(:remove_const, name) if ::Object.const_defined?(name)
         ::Object.const_set(name, model_class)
-        model_class.table_name = table_name
-        model_class.class_eval(&block)
+        model_class.table_name = table_name if table_name
+        model_class.class_eval(&block) if block
+        model_class
       end
 
       def ensure_database_is_set_up!
