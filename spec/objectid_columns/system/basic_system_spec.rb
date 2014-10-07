@@ -89,7 +89,7 @@ describe "ObjectidColumns basic operations" do
         end
 
         let(:parent_model_class) { define_model_class(:SpectableStiParent, 'objectidcols_spec_table_sti') { has_objectid_columns } }
-        let(:child_model_class) { define_model_class(:SpectableStiChild, 'objectidcols_spec_table_sti', :superclass => parent_model_class) { has_objectid_columns } }
+        let(:child_model_class) { define_model_class(:SpectableStiChild, 'objectidcols_spec_table_sti', :superclass => parent_model_class) { } }
 
         it "should work from both the parent and child class" do
           id_1 = new_oid

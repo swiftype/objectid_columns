@@ -347,7 +347,7 @@ module ObjectidColumns
     #
     #     MyModel.where(:foo_oid => "52ec126d78161f56d8000001")
     def translate_objectid_query_pair(query_key, query_value)
-      if (type = oid_columns[query_key.to_sym])
+      if (type = net_oid_columns[query_key.to_sym])
 
         # Handle nil, false
         if (! query_value)
@@ -381,7 +381,17 @@ module ObjectidColumns
 
     # Given the name of a column, tell whether or not it is an ObjectId column.
     def is_objectid_column?(column_name)
-      oid_columns.has_key?(column_name.to_sym)
+      net_oid_columns.has_key?(column_name.to_sym)
+    end
+
+    # Returns the same thing as +oid_columns+, except merges in the ActiveRecord class's superclass's columns, if
+    # any.
+    def net_oid_columns
+      out = { }
+      if (socm = superclass_objectid_columns_manager)
+        out = socm.net_oid_columns
+      end
+      out.merge(oid_columns)
     end
 
     private
@@ -390,9 +400,16 @@ module ObjectidColumns
     # Given the name of a column -- which must be an ObjectId column -- returns its type, either +:binary+ or
     # +:string+.
     def objectid_column_type(column_name)
-      out = oid_columns[column_name.to_sym]
-      raise "Something is horribly wrong; #{column_name.inspect} is not an ObjectId column -- we have: #{oid_columns.keys.inspect}" unless out
+      out = net_oid_columns[column_name.to_sym]
+      raise "Something is horribly wrong; #{column_name.inspect} is not an ObjectId column -- we have: #{net_oid_columns.keys.inspect}" unless out
       out
+    end
+
+    # If our +@active_record_class+ has a superclass that in turn is using +objectid_columns+, returns the
+    # ObjectidColumnsManager for that class, if any.
+    def superclass_objectid_columns_manager
+      ar_superclass = @active_record_class.superclass
+      ar_superclass.objectid_columns_manager if ar_superclass.respond_to?(:objectid_columns_manager)
     end
 
     # Raises an exception -- used for +case+ statements where we switch on the type of the column. Useful so that if,
