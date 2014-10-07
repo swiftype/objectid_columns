@@ -1,5 +1,10 @@
 # Change History for ObjectidColumns
 
+### Version 1.0.4: October 7, 2014
+
+* Fixed an issue where using `objectid_columns` on a parent model class that was then inherited from (via STI) could cause an internal exception.
+* Updated Travis testing specifications to the latest versions of Ruby/JRuby and ActiveRecord.
+
 ### Version 1.0.3: June 11, 2014
 
 * Fixed an issue where, if you tried to declare `has_objectid_primary_key` on a table that didn't exist (usually meaning it just hadn't been migrated into existence yet), you'd get an error. Now, we ignore this declaration.
