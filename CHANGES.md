@@ -1,6 +1,6 @@
 # Change History for ObjectidColumns
 
-### Version 1.0.4: October 7, 2014
+### Version 1.0.4: October 10, 2014
 
 * Fixed an issue where using `objectid_columns` on a parent model class that was then inherited from (via STI) could cause an internal exception.
 * Updated Travis testing specifications to the latest versions of Ruby/JRuby and ActiveRecord.
