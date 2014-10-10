@@ -55,7 +55,8 @@ Gem::Specification.new do |spec|
   # * Under Ruby 1.9+ with Postgres, it causes binary strings sent to or from the database to get truncated
   #   at the first null byte (!), which completely breaks binary-column support;
   # * Under JRuby with ActiveRecord 3.0, it's completely broken;
-  # * Under JRuby with ActiveRecord 3.1 and PostgreSQL, it's also broken.
+  # * Under JRuby with ActiveRecord 3.1 and PostgreSQL, it's also broken;
+  # * Under JRuby with ActiveRecord 4.1 and SQLite, it's also broken.
   #
   # In these cases, we simply don't load or test against composite_primary_keys; our code is good, but the interactions
   # between CPK and the rest of the system make it impossible to run those tests. There is corresponding code in our
@@ -63,7 +64,8 @@ Gem::Specification.new do |spec|
   cpk_allowed = true
   cpk_allowed = false if database_gem_name =~ /(pg|postgres)/i && RUBY_VERSION =~ /^(1\.9)|(2\.)/ && ar_version && ar_version =~ /^4\.(0|1)\./
   cpk_allowed = false if defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'jruby') && ar_version && ar_version =~ /^3\.0\./
-  cpk_allowed = false if defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'jruby') && ar_version && ar_version =~ /^3\.1\./ && database_gem_name =~ /(pg|postgres)/i
+  cpk_allowed = false if defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'jruby') && ar_version && ar_version =~ /^3\.1\./ && database_gem_name =~ /(pg|postgres)/
+  cpk_allowed = false if defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'jruby') && ar_version && ar_version =~ /^4\.1\./ && database_gem_name =~ /(sqlite)/
 
   if cpk_allowed
     spec.add_development_dependency "composite_primary_keys"
